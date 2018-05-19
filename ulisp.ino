@@ -1,5 +1,5 @@
-/* uLisp SAM/SAMD Version 2.0 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 10th February 2018
+/* uLisp ARM Version 2.2 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 19th May 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -11,7 +11,7 @@
 #define printfreespace
 #define serialmonitor
 // #define printgcs
-#define sdcardsupport
+// #define sdcardsupport
 
 // Includes
 
@@ -38,11 +38,11 @@
 #define push(x, y)         ((y) = cons((x),(y)))
 #define pop(y)             ((y) = cdr(y))
 
-#define numberp(x)         ((x)->type == NUMBER)
-#define symbolp(x)         ((x)->type == SYMBOL)
-#define stringp(x)         ((x)->type == STRING)
-#define characterp(x)      ((x)->type == CHARACTER)
-#define streamp(x)         ((x)->type == STREAM)
+#define numberp(x)         ((x) != NULL && (x)->type == NUMBER)
+#define symbolp(x)         ((x) != NULL && (x)->type == SYMBOL)
+#define stringp(x)         ((x) != NULL && (x)->type == STRING)
+#define characterp(x)      ((x) != NULL && (x)->type == CHARACTER)
+#define streamp(x)         ((x) != NULL && (x)->type == STREAM)
 
 #define mark(x)            (car(x) = (object *)(((uintptr_t)(car(x))) | MARKBIT))
 #define unmark(x)          (car(x) = (object *)(((uintptr_t)(car(x))) & ~MARKBIT))
@@ -71,7 +71,8 @@ MINUSP, ZEROP, ODDP, EVENP, CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRIN
 STRINGGREATER, SORT, STRINGFN, CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND,
 LOGIOR, LOGXOR, LOGNOT, ASH, LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC,
 TERPRI, READBYTE, READLINE, WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE,
-CLS, PINMODE, DIGITALREAD, DIGITALWRITE, ANALOGREAD, ANALOGWRITE, DELAY, MILLIS, NOTE, EDIT, PPRINT, ENDFUNCTIONS };
+CLS, PINMODE, DIGITALREAD, DIGITALWRITE, ANALOGREAD, ANALOGWRITE, DELAY, MILLIS, SLEEP, NOTE, EDIT,
+PPRINT, ENDFUNCTIONS };
 
 // Typedefs
 
@@ -130,6 +131,12 @@ typedef void (*pfun_t)(char);
   object Workspace[WORKSPACESIZE] WORDALIGNED;
   uint8_t _end;
 
+#elif defined(_VARIANT_BBC_MICROBIT_)
+  #define WORKSPACESIZE 1024              /* Cells (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  object Workspace[WORKSPACESIZE] WORDALIGNED;
+  uint8_t _end;
+
 #endif
 
 char SymbolTable[SYMBOLTABLESIZE];
@@ -165,7 +172,7 @@ object *read ();
 void repl(object *env);
 void printobject (object *form, pfun_t pfun);
 char *lookupbuiltin (symbol_t name);
-int lookupfn (symbol_t name);
+intptr_t lookupfn (symbol_t name);
 int builtin (char* n);
 void Display (char c);
 
@@ -227,6 +234,14 @@ object *symbol (symbol_t name) {
   return ptr;
 }
 
+object *newsymbol (symbol_t name) {
+  for (int i=WORKSPACESIZE-1; i>=0; i--) {
+    object *obj = &Workspace[i];
+    if (obj->type == SYMBOL && obj->name == name) return obj;
+  }
+  return symbol(name);
+}
+
 object *stream (unsigned char streamtype, unsigned char address) {
   object *ptr = myalloc();
   ptr->type = STREAM;
@@ -274,7 +289,7 @@ void gc (object *form, object *env) {
   #if defined(printgcs)
   int start = Freespace;
   #endif
-  markobject(tee); 
+  markobject(tee);
   markobject(GlobalEnv);
   markobject(GCStack);
   markobject(form);
@@ -292,8 +307,8 @@ void movepointer (object *from, object *to) {
     object *obj = &Workspace[i];
     unsigned int type = (obj->type) & ~MARKBIT;
     if (marked(obj) && (type >= STRING || type==ZERO)) {
-      if (car(obj) == (object *)((unsigned int)from | MARKBIT)) 
-        car(obj) = (object *)((unsigned int)to | MARKBIT);
+      if (car(obj) == (object *)((uintptr_t)from | MARKBIT)) 
+        car(obj) = (object *)((uintptr_t)to | MARKBIT);
       if (cdr(obj) == from) cdr(obj) = to;
     }
   }
@@ -304,7 +319,7 @@ void movepointer (object *from, object *to) {
       obj = cdr(obj);
       while (obj != NULL) {
         if (cdr(obj) == to) cdr(obj) = from;
-        obj = (object *)((unsigned int)(car(obj)) & ~MARKBIT);
+        obj = (object *)((uintptr_t)(car(obj)) & ~MARKBIT);
       }
     }
   }
@@ -350,6 +365,7 @@ char *MakeFilename (object *arg) {
 
 // Save-image and load-image
 
+#if defined(sdcardsupport)
 void SDWriteInt(File file, int data) {
   file.write(data & 0xFF); file.write(data>>8 & 0xFF);
 }
@@ -358,8 +374,10 @@ void SDWritePtr(File file, uintptr_t data) {
   file.write(data & 0xFF); file.write(data>>8 & 0xFF);
   file.write(data>>16 & 0xFF); file.write(data>>24 & 0xFF);
 }
+#endif
 
 int saveimage (object *arg) {
+#if defined(sdcardsupport)
   SD.begin(SDCARD_SS_PIN);
   File file;
   if (stringp(arg)) {
@@ -383,8 +401,12 @@ int saveimage (object *arg) {
   }
   file.close();
   return imagesize;
+#else
+  error(PSTR("save-image not available"));
+#endif
 }
 
+#if defined(sdcardsupport)
 unsigned int SDReadInt (File file) {
   int lo = file.read(); int hi = file.read();
   return lo | hi<<8;
@@ -395,8 +417,10 @@ object *SDReadPtr (File file) {
   uintptr_t b2 = file.read(); uintptr_t b3 = file.read();
   return (object *)(b0 | b1<<8 | b2<<16 | b3<<24);
 }
+#endif
 
 int loadimage (object *filename) {
+#if defined(sdcardsupport)
   SD.begin(SDCARD_SS_PIN);
   File file;
   if (stringp(filename)) file = SD.open(MakeFilename(filename));
@@ -418,9 +442,14 @@ int loadimage (object *filename) {
   file.close();
   gc(NULL, NULL);
   return imagesize;
+#else
+  error(PSTR("load-image not available"));
+#endif
 }
 
 void autorunimage () {
+#if defined(sdcardsupport)
+  SD.begin(SDCARD_SS_PIN);
   File file = SD.open("ULISP.IMG");
   if (!file) error(PSTR("Error: Problem autorunning from SD card"));
   object *autorun = SDReadPtr(file);
@@ -430,6 +459,9 @@ void autorunimage () {
     loadimage(NULL);
     apply(autorun, NULL, &nullenv);
   }
+#else
+  error(PSTR("autorun not available"));
+#endif
 }
 
 // Error handling
@@ -453,7 +485,6 @@ void error2 (object *symbol, PGM_P string) {
 // Tracing
 
 boolean tracing (symbol_t name) {
-  if (name == 0) return 0;
   int i = 0;
   while (i < TRACEMAX) {
     if (TraceFn[i] == name) return i+1;
@@ -564,12 +595,13 @@ int issymbol (object *obj, symbol_t n) {
 }
 
 int eq (object *arg1, object *arg2) {
-  int same_object = (arg1 == arg2);
-  int same_value = (arg1->cdr == arg2->cdr);
-  int same_symbol = (symbolp(arg1) && symbolp(arg2) && same_value);
-  int same_number = (numberp(arg1) && numberp(arg2) && same_value);
-  int same_character = (characterp(arg1) && characterp(arg2) && same_value);
-  return same_object || same_symbol || same_number || same_character;
+  if (arg1 == arg2) return true;  // Same object
+  if ((arg1 == nil) || (arg2 == nil)) return false;  // Not both values
+  if (arg1->cdr != arg2->cdr) return false;  // Different values
+  if (symbolp(arg1) && symbolp(arg2)) return true;  // Same symbol
+  if (numberp(arg1) && numberp(arg2)) return true;  // Same number
+  if (characterp(arg1) && characterp(arg2)) return true;  // Same character
+  return false;
 }
 
 int listlength (object *list) {
@@ -637,10 +669,10 @@ object *readstring (char delim, gfun_t gfun) {
   object *obj = myalloc();
   obj->type = STRING;
   int ch = gfun();
-  if (ch == EOF) return nil;
+  if (ch == -1) return nil;
   object *head = NULL;
   int chars = 0;
-  while ((ch != delim) && (ch != EOF)) {
+  while ((ch != delim) && (ch != -1)) {
     if (ch == '\\') ch = gfun();
     buildstring(ch, &chars, &head);
     ch = gfun();
@@ -703,20 +735,11 @@ object *findtwin (object *var, object *env) {
   return NULL;
 }
 
-void dropframe (int tc, object **env) {
-  if (tc) {
-    while (*env != NULL && car(*env) != NULL) {
-      pop(*env);
-    }
-  } else {
-    push(nil, *env);
-  }
-}
-
 // Handling closures
   
-object *closure (object *fname, object *state, object *function, object *args, object **env) {
-  int trace = tracing(fname->name);
+object *closure (int tc, object *fname, object *state, object *function, object *args, object **env) {
+  int trace = 0;
+  if (fname != NULL) trace = tracing(fname->name);
   if (trace) {
     indent(TraceDepth[trace-1]<<1, pserial);
     pint(TraceDepth[trace-1]++, pserial);
@@ -743,7 +766,9 @@ object *closure (object *fname, object *state, object *function, object *args, o
       value = first(args);
       args = cdr(args);
     }
-    push(cons(var,value), *env);
+    object *pair = findtwin(var, *env);
+    if (tc && (pair != NULL)) cdr(pair) = value;
+    else push(cons(var,value), *env);
     params = cdr(params);
     if (trace) { pserial(' '); printobject(value, pserial); }
   }
@@ -765,12 +790,12 @@ object *apply (object *function, object *args, object **env) {
   }
   if (listp(function) && issymbol(car(function), LAMBDA)) {
     function = cdr(function);
-    object *result = closure(NULL, NULL, function, args, env);
+    object *result = closure(0, NULL, NULL, function, args, env);
     return eval(result, *env);
   }
   if (listp(function) && issymbol(car(function), CLOSURE)) {
     function = cdr(function);
-    object *result = closure(NULL, car(function), cdr(function), args, env);
+    object *result = closure(0, NULL, car(function), cdr(function), args, env);
     return eval(result, *env);
   }
   error2(function, PSTR("is an illegal function"));
@@ -822,9 +847,6 @@ inline object *cdrx (object *arg) {
 }
 
 // I2C interface
-
-uint8_t const TWI_SDA_PIN = 10;
-uint8_t const TWI_SCL_PIN = 9;
 
 void I2Cinit(bool enablePullup) {
   (void) enablePullup;
@@ -912,7 +934,9 @@ gfun_t gstreamfun (object *args) {
   else if (streamtype == SPISTREAM) gfun = spiread;
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) gfun = gserial;
+    #if !defined(_VARIANT_BBC_MICROBIT_)
     else if (address == 1) gfun = serial1read;
+    #endif
   }
   #if defined(sdcardsupport)
   else if (streamtype == SDSTREAM) gfun = (gfun_t)SDread;
@@ -922,7 +946,9 @@ gfun_t gstreamfun (object *args) {
 }
 
 inline void spiwrite (char c) { SPI.transfer(c); }
+#if !defined(_VARIANT_BBC_MICROBIT_)
 inline void serial1write (char c) { Serial1.write(c); }
+#endif
 #if defined(sdcardsupport)
 inline void SDwrite (char c) { SDpfile.write(c); }
 #endif
@@ -939,7 +965,9 @@ pfun_t pstreamfun (object *args) {
   else if (streamtype == SPISTREAM) pfun = spiwrite;
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
+    #if !defined(_VARIANT_BBC_MICROBIT_)
     else if (address == 1) pfun = serial1write;
+    #endif
   }   
   #if defined(sdcardsupport)
   else if (streamtype == SDSTREAM) pfun = (pfun_t)SDwrite;
@@ -957,6 +985,8 @@ void checkanalogread (int pin) {
   if (!(pin>=14 && pin<=19)) error(PSTR("'analogread' invalid pin"));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!(pin>=15 && pin<=21)) error(PSTR("'analogread' invalid pin"));
+#elif defined(_VARIANT_BBC_MICROBIT_)
+  if (!((pin>=0 && pin<=4) || pin==10)) error(PSTR("'analogread' invalid pin"));
 #endif
 }
 
@@ -967,6 +997,8 @@ void checkanalogwrite (int pin) {
   if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || pin==14)) error(PSTR("'analogwrite' invalid pin"));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!((pin>=0 && pin<=8) || pin==10 || pin==18 || pin==19)) error(PSTR("'analogwrite' invalid pin"));
+#elif defined(_VARIANT_BBC_MICROBIT_)
+  error(PSTR("'analogwrite' not supported"));
 #endif
 }
 
@@ -992,6 +1024,71 @@ void nonote (int pin) {
   noTone(pin);
 }
 
+// Sleep
+
+#if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO)
+void WDT_Handler(void) {
+  // ISR for watchdog early warning
+  WDT->CTRL.bit.ENABLE = 0;        // Disable watchdog
+  while(WDT->STATUS.bit.SYNCBUSY); // Sync CTRL write
+  WDT->INTFLAG.bit.EW  = 1;        // Clear interrupt flag
+}
+#endif
+
+void initsleep () {
+#if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO)
+ // One-time initialization of watchdog timer.
+
+  // Generic clock generator 2, divisor = 32 (2^(DIV+1))
+  GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(4);
+  // Enable clock generator 2 using low-power 32KHz oscillator.
+  // With /32 divisor above, this yields 1024Hz clock.
+  GCLK->GENCTRL.reg = GCLK_GENCTRL_ID(2) |
+                      GCLK_GENCTRL_GENEN |
+                      GCLK_GENCTRL_SRC_OSCULP32K |
+                      GCLK_GENCTRL_DIVSEL;
+  while(GCLK->STATUS.bit.SYNCBUSY);
+  // WDT clock = clock gen 2
+  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID_WDT |
+                      GCLK_CLKCTRL_CLKEN |
+                      GCLK_CLKCTRL_GEN_GCLK2;
+
+  // Enable WDT early-warning interrupt
+  NVIC_DisableIRQ(WDT_IRQn);
+  NVIC_ClearPendingIRQ(WDT_IRQn);
+  NVIC_SetPriority(WDT_IRQn, 0);         // Top priority
+  NVIC_EnableIRQ(WDT_IRQn);
+#endif
+}
+
+void sleep (int secs) {
+#if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO)
+  WDT->CTRL.reg = 0;                     // Disable watchdog for config
+  while(WDT->STATUS.bit.SYNCBUSY);
+  WDT->INTENSET.bit.EW   = 1;            // Enable early warning interrupt
+  WDT->CONFIG.bit.PER    = 0xB;          // Period = max
+  WDT->CONFIG.bit.WINDOW = 0x7;          // Set time of interrupt = 1024 cycles = 1 sec
+  WDT->CTRL.bit.WEN      = 1;            // Enable window mode
+  while(WDT->STATUS.bit.SYNCBUSY);       // Sync CTRL write
+
+  SysTick->CTRL = 0;                     // Stop SysTick interrupts
+  
+  while (secs > 0) {
+    WDT->CLEAR.reg = WDT_CLEAR_CLEAR_KEY;// Clear watchdog interval
+    while(WDT->STATUS.bit.SYNCBUSY);
+    WDT->CTRL.bit.ENABLE = 1;            // Start watchdog now!
+    while(WDT->STATUS.bit.SYNCBUSY);
+    SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;   // Deepest sleep
+    __DSB();
+    __WFI();                             // Wait for interrupt
+    secs--;
+  }
+  SysTick->CTRL = 7;                     // Restart SysTick interrupts
+#else
+  delay(1000*secs);
+#endif
+}
+
 // Special forms
 
 object *sp_quote (object *args, object *env) {
@@ -1013,7 +1110,9 @@ object *sp_defun (object *args, object *env) {
 object *sp_defvar (object *args, object *env) {
   object *var = first(args);
   if (var->type != SYMBOL) error2(var, PSTR("is not a symbol"));
-  object *val = eval(second(args), env);
+  object *val = NULL;
+  args = cdr(args);
+  if (args != NULL) val = eval(first(args), env);
   object *pair = value(var->name,GlobalEnv);
   if (pair != NULL) { cdr(pair) = val; return var; }
   push(cons(var, val), GlobalEnv);
@@ -1271,7 +1370,7 @@ object *sp_withsdcard (object *args, object *env) {
   int mode = 0;
   if (params != NULL && first(params) != NULL) mode = integer(first(params));
   int oflag = O_READ;
-  if (mode == 1) oflag = O_RDWR | O_CREAT; else if (mode == 2) oflag = O_RDWR | O_CREAT | O_TRUNC;
+  if (mode == 1) oflag = O_RDWR | O_CREAT | O_APPEND; else if (mode == 2) oflag = O_RDWR | O_CREAT | O_TRUNC;
   if (mode >= 1) {
     SDpfile = SD.open(MakeFilename(filename), oflag);
     if (!SDpfile) error(PSTR("Problem writing to SD card"));
@@ -1391,17 +1490,20 @@ object *fn_consp (object *args, object *env) {
 
 object *fn_numberp (object *args, object *env) {
   (void) env;
-  return numberp(first(args)) ? tee : nil;
+  object *arg = first(args);
+  return numberp(arg) ? tee : nil;
 }
 
 object *fn_symbolp (object *args, object *env) {
   (void) env;
-  return symbolp(first(args)) ? tee : nil;
+  object *arg = first(args);
+  return symbolp(arg) ? tee : nil;
 }
 
 object *fn_streamp (object *args, object *env) {
   (void) env;
-  return streamp(first(args)) ? tee : nil;
+  object *arg = first(args);
+  return streamp(arg) ? tee : nil;
 }
 
 object *fn_eq (object *args, object *env) {
@@ -1587,8 +1689,6 @@ object *fn_mapc (object *args, object *env) {
   if (list2 != NULL) {
     list2 = car(list2);
     if (!listp(list2)) error(PSTR("'mapc' third argument is not a list"));
-  }
-  if (list2 != NULL) {
     while (list1 != NULL && list2 != NULL) {
       apply(function, cons(car(list1),cons(car(list2),NULL)), &env);
       list1 = cdr(list1);
@@ -1768,7 +1868,8 @@ object *fn_max (object *args, object *env) {
   int result = integer(first(args));
   args = cdr(args);
   while (args != NULL) {
-    result = max(result,integer(car(args)));
+    int next = integer(car(args));
+    if (next > result) result = next;
     args = cdr(args);
   }
   return number(result);
@@ -1779,7 +1880,8 @@ object *fn_min (object *args, object *env) {
   int result = integer(first(args));
   args = cdr(args);
   while (args != NULL) {
-    result = min(result,integer(car(args)));
+    int next = integer(car(args));
+    if (next < result) result = next;
     args = cdr(args);
   }
   return number(result);
@@ -2076,7 +2178,7 @@ int gstr () {
     return temp;
   }
   char c = nthchar(GlobalString, GlobalStringIndex++);
-  return (c != 0) ? c : '\n';
+  return (c != 0) ? c : '\n'; // -1?
 }
 
 object *fn_readfromstring (object *args, object *env) {   
@@ -2253,7 +2355,7 @@ object *fn_readbyte (object *args, object *env) {
   (void) env;
   gfun_t gfun = gstreamfun(args);
   int c = gfun();
-  return (c == EOF) ? nil : number(c);
+  return (c == -1) ? nil : number(c);
 }
 
 object *fn_readline (object *args, object *env) {
@@ -2288,7 +2390,7 @@ object *fn_writeline (object *args, object *env) {
   char temp = PrintReadably;
   PrintReadably = 0;
   printstring(obj, pfun);
-  (pfun)('\n');
+  pln(pfun);
   PrintReadably = temp;
   return nil;
 }
@@ -2318,7 +2420,7 @@ object *fn_gc (object *obj, object *env) {
   pint(Freespace - initial, pserial);
   pfstring(PSTR(" bytes, Time: "), pserial);
   pint(elapsed, pserial);
-  pfstring(PSTR(" uS\r"), pserial);
+  pfstring(PSTR(" us\r"), pserial);
   return nil;
 }
 
@@ -2338,7 +2440,7 @@ object *fn_loadimage (object *args, object *env) {
   return number(loadimage(args));
 }
 
-object *fn_cls(object *args, object *env) {
+object *fn_cls (object *args, object *env) {
   (void) args, (void) env;
   pserial(12);
   return nil;
@@ -2358,14 +2460,15 @@ object *fn_pinmode (object *args, object *env) {
 object *fn_digitalread (object *args, object *env) {
   (void) env;
   int pin = integer(first(args));
-  if(digitalRead(pin) != 0) return tee; else return nil;
+  if (digitalRead(pin) != 0) return tee; else return nil;
 }
 
 object *fn_digitalwrite (object *args, object *env) {
   (void) env;
   int pin = integer(first(args));
   object *mode = second(args);
-  digitalWrite(pin, (mode != nil));
+  if (numberp(mode)) digitalWrite(pin, mode->integer);
+  else digitalWrite(pin, (mode != nil));
   return mode;
 }
 
@@ -2397,12 +2500,20 @@ object *fn_millis (object *args, object *env) {
   return number(millis());
 }
 
+object *fn_sleep (object *args, object *env) {
+  (void) env;
+  object *arg1 = first(args);
+  sleep(integer(arg1));
+  return arg1;
+}
+
 object *fn_note (object *args, object *env) {
   (void) env;
   static int pin = 255;
   if (args != NULL) {
     pin = integer(first(args));
-    int note = integer(second(args));
+    int note = 0;
+    if (cddr(args) != NULL) note = integer(second(args));
     int octave = 0;
     if (cddr(args) != NULL) octave = integer(third(args));
     playnote(pin, note, octave);
@@ -2486,8 +2597,9 @@ void superprint (object *form, int lm, pfun_t pfun) {
   else supersub(form, lm + PPINDENT, 1, pfun);
 }
 
-const int ppspecials = 12;
-const char ppspecial[ppspecials] PROGMEM = { IF, SETQ, TEE, LET, LETSTAR, LAMBDA, WHEN, UNLESS, WITHI2C, WITHSERIAL, WITHSPI, WITHSDCARD };
+const int ppspecials = 14;
+const char ppspecial[ppspecials] PROGMEM = 
+  { DOTIMES, DOLIST, IF, SETQ, TEE, LET, LETSTAR, LAMBDA, WHEN, UNLESS, WITHI2C, WITHSERIAL, WITHSPI, WITHSDCARD };
 
 void supersub (object *form, int lm, int super, pfun_t pfun) {
   int special = 0, separate = 1;
@@ -2673,9 +2785,10 @@ const char string145[] PROGMEM = "analogread";
 const char string146[] PROGMEM = "analogwrite";
 const char string147[] PROGMEM = "delay";
 const char string148[] PROGMEM = "millis";
-const char string149[] PROGMEM = "note";
-const char string150[] PROGMEM = "edit";
-const char string151[] PROGMEM = "pprint";
+const char string149[] PROGMEM = "sleep";
+const char string150[] PROGMEM = "note";
+const char string151[] PROGMEM = "edit";
+const char string152[] PROGMEM = "pprint";
 
 const tbl_entry_t lookup_table[] PROGMEM = {
   { string0, NULL, NIL, NIL },
@@ -2827,9 +2940,10 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string146, fn_analogwrite, 2, 2 },
   { string147, fn_delay, 1, 1 },
   { string148, fn_millis, 0, 0 },
-  { string149, fn_note, 0, 3 },
-  { string150, fn_edit, 1, 1 },
-  { string151, fn_pprint, 1, 2 },
+  { string149, fn_sleep, 1, 1 },
+  { string150, fn_note, 0, 3 },
+  { string151, fn_edit, 1, 1 },
+  { string152, fn_pprint, 1, 2 },
 };
 
 // Table lookup functions
@@ -2837,7 +2951,7 @@ const tbl_entry_t lookup_table[] PROGMEM = {
 int builtin (char* n) {
   int entry = 0;
   while (entry < ENDFUNCTIONS) {
-    if(strcmp_P(n, (char*)pgm_read_word(&lookup_table[entry].string)) == 0)
+    if (strcmp_P(n, (char*)pgm_read_word(&lookup_table[entry].string)) == 0)
       return entry;
     entry++;
   }
@@ -2858,7 +2972,7 @@ int longsymbol (char *buffer) {
   return i + 64000; // First number unused by radix40
 }
 
-int lookupfn (symbol_t name) {
+intptr_t lookupfn (symbol_t name) {
   return pgm_read_word(&lookup_table[name].fptr);
 }
 
@@ -2904,8 +3018,8 @@ object *eval (object *form, object *env) {
   int TC=0;
   EVAL:
   // Enough space?
-  if (Freespace < 20) gc(form, env);
   if (End != 0xA5) error(PSTR("Stack overflow"));
+  if (Freespace < 20) gc(form, env);
   // Escape
   if (tstflag(ESCAPE)) { clrflag(ESCAPE); error(PSTR("Escape!"));}
   #if defined (serialmonitor)
@@ -2944,8 +3058,9 @@ object *eval (object *form, object *env) {
       push(newenv, GCStack);
       while (assigns != NULL) {
         object *assign = car(assigns);
-        if (consp(assign)) push(cons(first(assign),eval(second(assign),env)), newenv);
-        else push(cons(assign,nil), newenv);
+        if (!consp(assign)) push(cons(assign,nil), newenv);
+        else if (cdr(assign) == NULL) push(cons(first(assign),nil), newenv);
+        else push(cons(first(assign),eval(second(assign),env)), newenv);
         car(GCStack) = newenv;
         if (name == LETSTAR) env = newenv;
         assigns = cdr(assigns);
@@ -3014,8 +3129,7 @@ object *eval (object *form, object *env) {
   }
       
   if (listp(function) && issymbol(car(function), LAMBDA)) {
-    dropframe(TCstart, &env);
-    form = closure(fname, NULL, cdr(function), args, &env);
+    form = closure(TCstart, fname, NULL, cdr(function), args, &env);
     pop(GCStack);
     int trace = tracing(fname->name);
     if (trace) {
@@ -3034,8 +3148,7 @@ object *eval (object *form, object *env) {
 
   if (listp(function) && issymbol(car(function), CLOSURE)) {
     function = cdr(function);
-    dropframe(TCstart, &env);
-    form = closure(fname, car(function), cdr(function), args, &env);
+    form = closure(TCstart, fname, car(function), cdr(function), args, &env);
     pop(GCStack);
     TC = 1;
     goto EVAL;
@@ -3088,7 +3201,7 @@ void printstring (object *form, pfun_t pfun) {
 }
 
 void pfstring (PGM_P s, pfun_t pfun) {
-  int p = (int)s;
+  intptr_t p = (intptr_t)s;
   while (1) {
     char c = pgm_read_byte(p++);
     if (c == 0) return;
@@ -3119,7 +3232,7 @@ void pfl (pfun_t pfun) {
   if (LastPrint != '\n') pfun('\n');
 }
 
-void printobject(object *form, pfun_t pfun){
+void printobject (object *form, pfun_t pfun){
   if (form == NULL) pfstring(PSTR("nil"), pfun);
   else if (listp(form) && issymbol(car(form), CLOSURE)) pfstring(PSTR("<closure>"), pfun);
   else if (listp(form)) {
@@ -3180,7 +3293,8 @@ object *nextitem (gfun_t gfun) {
     ch = '(';
   }
   if (ch == '\n') ch = gfun();
-  if (ch == EOF) return nil;
+  if (ch == EOF) exit(0);
+  if (ch == -1) return nil;
   if (ch == ')') return (object *)KET;
   if (ch == '(') return (object *)BRA;
   if (ch == '\'') return (object *)QUO;
@@ -3189,7 +3303,7 @@ object *nextitem (gfun_t gfun) {
   // Parse string
   if (ch == '"') return readstring('"', gfun);
   
-  // Parse variable, character, or number
+  // Parse symbol, character, or number
   int index = 0, base = 10, sign = 1;
   char *buffer = SymbolTop;
   int bufmax = SYMBOLTABLESIZE-(buffer-SymbolTable)-1; // Max index
@@ -3211,7 +3325,7 @@ object *nextitem (gfun_t gfun) {
     ch = gfun();
   }
   int isnumber = (digitvalue(ch)<base);
-  buffer[2] = '\0'; // In case variable is one letter
+  buffer[2] = '\0'; // In case symbol is one letter
 
   while(!isspace(ch) && ch != ')' && ch != '(' && index < bufmax) {
     buffer[index++] = ch;
@@ -3222,8 +3336,7 @@ object *nextitem (gfun_t gfun) {
   }
 
   buffer[index] = '\0';
-  if (ch == ')') LastChar = ')';
-  if (ch == '(') LastChar = '(';
+  if (ch == ')' || ch == '(') LastChar = ch;
 
   if (isnumber) {
     if (base == 10 && result > ((unsigned int)INT_MAX+(1-sign)/2)) 
@@ -3241,9 +3354,9 @@ object *nextitem (gfun_t gfun) {
   
   int x = builtin(buffer);
   if (x == NIL) return nil;
-  if (x < ENDFUNCTIONS) return symbol(x);
-  else if (index < 4 && valid40(buffer)) return symbol(pack40(buffer));
-  else return symbol(longsymbol(buffer));
+  if (x < ENDFUNCTIONS) return newsymbol(x);
+  else if (index < 4 && valid40(buffer)) return newsymbol(pack40(buffer));
+  else return newsymbol(longsymbol(buffer));
 }
 
 object *readrest (gfun_t gfun) {
@@ -3282,17 +3395,17 @@ object *read (gfun_t gfun) {
 
 // Setup
 
-void initenv() {
+void initenv () {
   GlobalEnv = NULL;
   tee = symbol(TEE);
 }
 
-void setup() {
+void setup () {
   Serial.begin(9600);
-  while (!Serial);  // wait for Serial to initialize
   initworkspace();
   initenv();
-  pfstring(PSTR("uLisp 2.0 "), pserial); pln(pserial);
+  initsleep();
+  pfstring(PSTR("uLisp 2.2 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -3324,13 +3437,16 @@ void repl (object *env) {
 }
 
 void loop () {
+  End = 0xA5;      // Canary to check stack
   if (!setjmp(exception)) {
     #if defined(resetautorun)
-    autorunimage();
+    volatile int autorun = 12; // Fudge to keep code size the same
+    #else
+    volatile int autorun = 13;
     #endif
+    if (autorun == 12) autorunimage();
   }
   // Come here after error
-  End = 0xA5;      // Canary to check stack
   for (int i=0; i<TRACEMAX; i++) TraceDepth[i] = 0;
   #if defined(sdcardsupport)
   SDpfile.close(); SDgfile.close();
