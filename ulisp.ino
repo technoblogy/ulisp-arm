@@ -1,5 +1,5 @@
-/* uLisp ARM Version 2.2 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 19th May 2018
+/* uLisp ARM Version 2.2a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 21st May 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -998,7 +998,7 @@ void checkanalogwrite (int pin) {
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!((pin>=0 && pin<=8) || pin==10 || pin==18 || pin==19)) error(PSTR("'analogwrite' invalid pin"));
 #elif defined(_VARIANT_BBC_MICROBIT_)
-  error(PSTR("'analogwrite' not supported"));
+  if (!((pin>=0 && pin<=16) || pin==19 || pin==20)) error(PSTR("'analogwrite' invalid pin"));
 #endif
 }
 
