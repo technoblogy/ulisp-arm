@@ -1,5 +1,5 @@
-/* uLisp ARM Version 2.3 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 2nd June 2018
+/* uLisp ARM Version 2.4 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 15th September 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -23,6 +23,9 @@
 
 #if defined(sdcardsupport)
 #include <SD.h>
+#define SDSIZE 172
+#else
+#define SDSIZE 0
 #endif
 
 // C Macros
@@ -116,20 +119,38 @@ typedef void (*pfun_t)(char);
 #define BUFFERSIZE 34  // Number of bits+2
 
 #if defined(ARDUINO_SAMD_ZERO)
-  #define WORKSPACESIZE 3072              /* Cells (8*bytes) */
+  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define SDCARD_SS_PIN 10
   uint8_t _end;
 
 #elif defined(ARDUINO_SAM_DUE)
-  #define WORKSPACESIZE 10240             /* Cells (8*bytes) */
+  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define SDCARD_SS_PIN 10
   extern uint8_t _end;
 
 #elif defined(ARDUINO_SAMD_MKRZERO)
-  #define WORKSPACESIZE 3072              /* Cells (8*bytes) */
+  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
+  uint8_t _end;
+
+#elif defined(ARDUINO_METRO_M4)
+  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  uint8_t _end;
+
+#elif defined(ARDUINO_ITSYBITSY_M4)
+  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  uint8_t _end;
+
+#elif defined(ARDUINO_FEATHER_M4)
+  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
 
 #elif defined(_VARIANT_BBC_MICROBIT_)
@@ -373,13 +394,114 @@ char *MakeFilename (object *arg) {
 // Save-image and load-image
 
 #if defined(sdcardsupport)
-void SDWriteInt(File file, int data) {
-  file.write(data & 0xFF); file.write(data>>8 & 0xFF);
-}
-
-void SDWritePtr(File file, uintptr_t data) {
+void SDWriteInt (File file, int data) {
   file.write(data & 0xFF); file.write(data>>8 & 0xFF);
   file.write(data>>16 & 0xFF); file.write(data>>24 & 0xFF);
+}
+#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+// Winbond DataFlash support for Adafruit M4 Express boards
+#define PAGEPROG      0x02
+#define READSTATUS    0x05
+#define READDATA      0x03
+#define WRITEENABLE   0x06
+#define BLOCK64K      0xD8
+#define READID        0x90
+
+// Arduino pins used for dataflash
+#if defined(ARDUINO_ITSYBITSY_M4)
+const int sck = 32, ssel = 33, mosi = 34, miso = 35;
+#elif defined(ARDUINO_METRO_M4)
+const int sck = 41, ssel = 42, mosi = 43, miso = 44;
+#elif defined(ARDUINO_FEATHER_M4)
+const int sck = 34, ssel = 35, mosi = 36, miso = 37;
+#endif
+
+boolean FlashSetup () {
+  uint8_t manID, devID;
+  digitalWrite(ssel, HIGH); pinMode(ssel, OUTPUT);
+  pinMode(sck, OUTPUT);
+  pinMode(mosi, OUTPUT);
+  pinMode(miso, INPUT);
+  digitalWrite(sck, LOW); digitalWrite(mosi, HIGH);
+  digitalWrite(ssel, LOW);
+  FlashWrite(READID);
+  for(uint8_t i=0; i<4; i++) manID = FlashRead();
+  devID = FlashRead();
+  digitalWrite(ssel, HIGH);
+  return (devID == 0x14); // Found correct device
+}
+
+inline void FlashWrite (uint8_t data) {
+  shiftOut(mosi, sck, MSBFIRST, data);
+}
+
+void FlashBusy () {
+  digitalWrite(ssel, 0);
+  FlashWrite(READSTATUS);
+  while (FlashRead() & 1 != 0);
+  digitalWrite(ssel, 1);
+}
+
+void FlashWriteEnable () {
+  digitalWrite(ssel, 0);
+  FlashWrite(WRITEENABLE);
+  digitalWrite(ssel, 1);
+}
+
+void FlashBeginRead () {
+  FlashBusy();
+  digitalWrite(ssel, 0);
+  FlashWrite(READDATA);
+  FlashWrite(0); FlashWrite(0); FlashWrite(0);
+}
+
+inline uint8_t FlashRead () {
+  int data;
+  return shiftIn(miso, sck, MSBFIRST);
+}
+
+inline void FlashEndRead(void) {
+  digitalWrite(ssel, 1);
+}
+
+void FlashBeginWrite () {
+  FlashBusy();
+  // Erase 64K
+  FlashWriteEnable();
+  digitalWrite(ssel, 0);
+  FlashWrite(BLOCK64K);
+  FlashWrite(0); FlashWrite(0); FlashWrite(0);
+  digitalWrite(ssel, 1);
+  FlashBusy();
+}
+
+inline uint8_t FlashReadByte () {
+  return FlashRead();
+}
+
+void FlashWriteByte (unsigned int *addr, uint8_t data) {
+  // New page
+  if (((*addr) & 0xFF) == 0) {
+    digitalWrite(ssel, 1);
+    FlashBusy();
+    FlashWriteEnable();
+    digitalWrite(ssel, 0);
+    FlashWrite(PAGEPROG);
+    FlashWrite((*addr)>>16);
+    FlashWrite((*addr)>>8);
+    FlashWrite(0);
+  }
+  FlashWrite(data);
+  (*addr)++;
+}
+
+inline void FlashEndWrite (void) {
+  digitalWrite(ssel, 1);
+}
+
+void FlashWriteInt (unsigned int *addr, int data) {
+  FlashWriteByte(addr, data & 0xFF); FlashWriteByte(addr, data>>8 & 0xFF);
+  FlashWriteByte(addr, data>>16 & 0xFF); FlashWriteByte(addr, data>>24 & 0xFF);
 }
 #endif
 
@@ -393,20 +515,48 @@ int saveimage (object *arg) {
   } else file = SD.open("ULISP.IMG", O_RDWR | O_CREAT | O_TRUNC);
   if (!file) error(PSTR("Problem saving to SD card"));
   unsigned int imagesize = compactimage(&arg);
-  SDWritePtr(file, (uintptr_t)arg);
+  SDWriteInt(file, (uintptr_t)arg);
   SDWriteInt(file, imagesize);
-  SDWritePtr(file, (uintptr_t)GlobalEnv);
-  SDWritePtr(file, (uintptr_t)GCStack);
+  SDWriteInt(file, (uintptr_t)GlobalEnv);
+  SDWriteInt(file, (uintptr_t)GCStack);
   #if SYMBOLTABLESIZE > BUFFERSIZE
-  SDWritePtr(file, (uintptr_t)SymbolTop);
+  SDWriteInt(file, (uintptr_t)SymbolTop);
   for (int i=0; i<SYMBOLTABLESIZE; i++) file.write(SymbolTable[i]);
   #endif
   for (unsigned int i=0; i<imagesize; i++) {
     object *obj = &Workspace[i];
-    SDWritePtr(file, (uintptr_t)car(obj));
-    SDWritePtr(file, (uintptr_t)cdr(obj));
+    SDWriteInt(file, (uintptr_t)car(obj));
+    SDWriteInt(file, (uintptr_t)cdr(obj));
   }
   file.close();
+  return imagesize;
+#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+  unsigned int imagesize = compactimage(&arg);
+  if (!FlashSetup()) error(PSTR("No DataFlash found."));
+  // Save to DataFlash
+  int bytesneeded = imagesize*8 + SYMBOLTABLESIZE + 20;
+  if (bytesneeded > FLASHSIZE) {
+    pfstring(PSTR("Error: Image size too large: "), pserial);
+    pint(imagesize, pserial); pln(pserial);
+    GCStack = NULL;
+    longjmp(exception, 1);
+  }
+  unsigned int addr = 0;
+  FlashBeginWrite();
+  FlashWriteInt(&addr, (uintptr_t)arg);
+  FlashWriteInt(&addr, imagesize);
+  FlashWriteInt(&addr, (uintptr_t)GlobalEnv);
+  FlashWriteInt(&addr, (uintptr_t)GCStack);
+  #if SYMBOLTABLESIZE > BUFFERSIZE
+  FlashWriteInt(&addr, (uintptr_t)SymbolTop);
+  for (int i=0; i<SYMBOLTABLESIZE; i++) FlashWriteByte(&addr, SymbolTable[i]);
+  #endif
+  for (unsigned int i=0; i<imagesize; i++) {
+    object *obj = &Workspace[i];
+    FlashWriteInt(&addr, (uintptr_t)car(obj));
+    FlashWriteInt(&addr, (uintptr_t)cdr(obj));
+  }
+  FlashEndWrite();
   return imagesize;
 #else
   (void) arg;
@@ -416,15 +566,16 @@ int saveimage (object *arg) {
 }
 
 #if defined(sdcardsupport)
-unsigned int SDReadInt (File file) {
-  int lo = file.read(); int hi = file.read();
-  return lo | hi<<8;
-}
-
-object *SDReadPtr (File file) {
+int SDReadInt (File file) {
   uintptr_t b0 = file.read(); uintptr_t b1 = file.read();
   uintptr_t b2 = file.read(); uintptr_t b3 = file.read();
-  return (object *)(b0 | b1<<8 | b2<<16 | b3<<24);
+  return b0 | b1<<8 | b2<<16 | b3<<24;
+}
+#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+int FlashReadInt () {
+  uint8_t b0 = FlashReadByte(); uint8_t b1 = FlashReadByte();
+  uint8_t b2 = FlashReadByte(); uint8_t b3 = FlashReadByte();
+  return b0 | b1<<8 | b2<<16 | b3<<24;
 }
 #endif
 
@@ -435,21 +586,41 @@ int loadimage (object *filename) {
   if (stringp(filename)) file = SD.open(MakeFilename(filename));
   else file = SD.open("ULISP.IMG");
   if (!file) error(PSTR("Problem loading from SD card"));
-  SDReadPtr(file);
+  SDReadInt(file);
   int imagesize = SDReadInt(file);
-  GlobalEnv = SDReadPtr(file);
-  GCStack = SDReadPtr(file);
+  GlobalEnv = (object *)SDReadInt(file);
+  GCStack = (object *)SDReadInt(file);
   #if SYMBOLTABLESIZE > BUFFERSIZE
-  SymbolTop = (char *)SDReadPtr(file);
+  SymbolTop = (char *)SDReadInt(file);
   for (int i=0; i<SYMBOLTABLESIZE; i++) SymbolTable[i] = file.read();
   #endif
   for (int i=0; i<imagesize; i++) {
     object *obj = &Workspace[i];
-    car(obj) = SDReadPtr(file);
-    cdr(obj) = SDReadPtr(file);
+    car(obj) = (object *)SDReadInt(file);
+    cdr(obj) = (object *)SDReadInt(file);
   }
   file.close();
   gc(NULL, NULL);
+  return imagesize;
+#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+  if (!FlashSetup()) error(PSTR("No DataFlash found."));
+  FlashBeginRead();
+  FlashReadInt(); // Skip eval address
+  int imagesize = FlashReadInt();
+  if (imagesize == 0 || imagesize == 0xFFFF) error(PSTR("No saved image"));
+  GlobalEnv = (object *)FlashReadInt();
+  GCStack = (object *)FlashReadInt();
+  #if SYMBOLTABLESIZE > BUFFERSIZE
+  SymbolTop = (char *)FlashReadInt();
+  for (int i=0; i<SYMBOLTABLESIZE; i++) SymbolTable[i] = FlashReadByte();
+  #endif
+  for (int i=0; i<imagesize; i++) {
+    object *obj = &Workspace[i];
+    car(obj) = (object *)FlashReadInt();
+    cdr(obj) = (object *)FlashReadInt();
+  }
+  gc(NULL, NULL);
+  FlashEndRead();
   return imagesize;
 #else
   (void) filename;
@@ -463,11 +634,20 @@ void autorunimage () {
   SD.begin(SDCARD_SS_PIN);
   File file = SD.open("ULISP.IMG");
   if (!file) error(PSTR("Error: Problem autorunning from SD card"));
-  object *autorun = SDReadPtr(file);
+  object *autorun = (object *)SDReadInt(file);
   object *nullenv = NULL;
   file.close();
   if (autorun != NULL) {
     loadimage(NULL);
+    apply(autorun, NULL, &nullenv);
+  }
+#elif defined(ARDUINO_METRO_M4)
+  object *nullenv = NULL;
+  FlashBeginRead();
+  object *autorun = (object *)FlashReadInt();
+  FlashEndRead();
+  if (autorun != NULL && (unsigned int)autorun != 0xFFFF) {
+    loadimage(nil);
     apply(autorun, NULL, &nullenv);
   }
 #else
@@ -904,7 +1084,7 @@ void I2Cstop(uint8_t read) {
 // Streams
 
 inline int spiread () { return SPI.transfer(0); }
-#if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO)
+#if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 #elif defined(ARDUINO_SAM_DUE)
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
@@ -924,7 +1104,7 @@ inline int SDread () {
 #endif
 
 void serialbegin (int address, int baud) {
-  #if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO)
+  #if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
   if (address == 1) Serial1.begin((long)baud*100);
   else error(PSTR("'with-serial' port not supported"));
   #elif defined(ARDUINO_SAM_DUE)
@@ -936,7 +1116,7 @@ void serialbegin (int address, int baud) {
 }
 
 void serialend (int address) {
-  #if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO)
+  #if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
   if (address == 1) Serial1.end();
   #elif defined(ARDUINO_SAM_DUE)
   if (address == 1) Serial1.end();
@@ -980,7 +1160,7 @@ pfun_t pstreamfun (object *args) {
   int streamtype = SERIALSTREAM;
   int address = 0;
   pfun_t pfun = pserial;
-  if (args != NULL) {
+  if (args != NULL && first(args) != NULL) {
     int stream = istream(first(args));
     streamtype = stream>>8; address = stream & 0xFF;
   }
@@ -1008,6 +1188,12 @@ void checkanalogread (int pin) {
   if (!(pin>=14 && pin<=19)) error(PSTR("'analogread' invalid pin"));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!(pin>=15 && pin<=21)) error(PSTR("'analogread' invalid pin"));
+#elif defined(ARDUINO_METRO_M4)
+  if (!(pin>=14 && pin<=21)) error(PSTR("'analogread' invalid pin"));
+#elif defined(ARDUINO_ITSYBITSY_M4)
+  if (!(pin>=14 && pin<=19)) error(PSTR("'analogread' invalid pin"));
+#elif defined(ARDUINO_FEATHER_M4)
+  if (!(pin>=14 && pin<=19)) error(PSTR("'analogread' invalid pin"));
 #elif defined(_VARIANT_BBC_MICROBIT_)
   if (!((pin>=0 && pin<=4) || pin==10)) error(PSTR("'analogread' invalid pin"));
 #endif
@@ -1020,8 +1206,14 @@ void checkanalogwrite (int pin) {
   if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || pin==14)) error(PSTR("'analogwrite' invalid pin"));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!((pin>=0 && pin<=8) || pin==10 || pin==18 || pin==19)) error(PSTR("'analogwrite' invalid pin"));
+#elif defined(ARDUINO_METRO_M4)
+  if (!(pin>=0 && pin<=15)) error(PSTR("'analogwrite' invalid pin"));
+#elif defined(ARDUINO_ITSYBITSY_M4)
+  if (!(pin==0 || pin==1 || pin==4 || pin==5 || pin==7 || (pin>=9 && pin<=15) || pin==21 || pin==22)) error(PSTR("'analogwrite' invalid pin"));
+#elif defined(ARDUINO_FEATHER_M4)
+  if (!(pin==0 || pin==1 || (pin>=4 && pin<=6) || (pin>=9 && pin<=13) || pin==14 || pin==15 || pin==17 || pin==21 || pin==22)) error(PSTR("'analogwrite' invalid pin"));
 #elif defined(_VARIANT_BBC_MICROBIT_)
-  error(PSTR("'analogwrite' not supported"));
+  if (!(pin>=0 && pin<=2)) error(PSTR("'analogwrite' invalid pin"));
 #endif
 }
 
@@ -2320,7 +2512,9 @@ object *fn_round (object *args, object *env) {
 
 object *fn_char (object *args, object *env) {
   (void) env;
-  char c = nthchar(first(args), integer(second(args)));
+  object *arg = first(args);
+  if (!stringp(arg)) error2(arg, PSTR("is not a string"));
+  char c = nthchar(arg, integer(second(args)));
   if (c == 0) error(PSTR("'char' index out of range"));
   return character(c);
 }
@@ -3875,7 +4069,7 @@ void setup () {
   initworkspace();
   initenv();
   initsleep();
-  pfstring(PSTR("uLisp 2.3 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 2.4 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
