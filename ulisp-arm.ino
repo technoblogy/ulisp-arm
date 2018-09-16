@@ -125,7 +125,7 @@ typedef void (*pfun_t)(char);
   uint8_t _end;
 
 #elif defined(ARDUINO_SAM_DUE)
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define WORKSPACESIZE 10240-SDSIZE      /* Cells (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define SDCARD_SS_PIN 10
   extern uint8_t _end;
