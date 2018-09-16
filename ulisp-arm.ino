@@ -1,5 +1,5 @@
-/* uLisp ARM Version 2.4 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 15th September 2018
+/* uLisp ARM Version 2.4a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 16th September 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -136,19 +136,19 @@ typedef void (*pfun_t)(char);
   uint8_t _end;
 
 #elif defined(ARDUINO_METRO_M4)
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
   #define FLASHSIZE 65536                 /* Bytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
 
 #elif defined(ARDUINO_ITSYBITSY_M4)
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
   #define FLASHSIZE 65536                 /* Bytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
 
 #elif defined(ARDUINO_FEATHER_M4)
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
   #define FLASHSIZE 65536                 /* Bytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
