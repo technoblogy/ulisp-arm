@@ -1,5 +1,5 @@
-/* uLisp ARM Version 2.4a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 16th September 2018
+/* uLisp ARM Version 2.4b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 23rd September 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -641,7 +641,7 @@ void autorunimage () {
     loadimage(NULL);
     apply(autorun, NULL, &nullenv);
   }
-#elif defined(ARDUINO_METRO_M4)
+#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
   object *nullenv = NULL;
   FlashBeginRead();
   object *autorun = (object *)FlashReadInt();
