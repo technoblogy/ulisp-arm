@@ -1,5 +1,5 @@
-/* uLisp ARM Version 2.5 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 30th November 2018
+/* uLisp ARM Version 2.5a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 1st December 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -3591,7 +3591,7 @@ object *eval (object *form, object *env) {
   EVAL:
   // Enough space?
   if (End != 0xA5) error(PSTR("Stack overflow"));
-  if (Freespace < 20) gc(form, env);
+  if (Freespace <= WORKSPACESIZE>>4) gc(form, env);
   // Escape
   if (tstflag(ESCAPE)) { clrflag(ESCAPE); error(PSTR("Escape!"));}
   #if defined (serialmonitor)
@@ -4129,4 +4129,3 @@ void loop () {
   #endif
   repl(NULL);
 }
-
