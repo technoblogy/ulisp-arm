@@ -1,5 +1,5 @@
-/* uLisp ARM Version 2.4b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 23rd September 2018
+/* uLisp ARM Version 2.5 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 30th November 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -154,7 +154,7 @@ typedef void (*pfun_t)(char);
   uint8_t _end;
 
 #elif defined(_VARIANT_BBC_MICROBIT_)
-  #define WORKSPACESIZE 1024              /* Cells (8*bytes) */
+  #define WORKSPACESIZE 1280              /* Cells (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   uint8_t _end;
 
@@ -183,7 +183,7 @@ char LastPrint = 0;
 char PrintReadably = 1;
 
 // Flags
-enum flag { RETURNFLAG, ESCAPE, EXITEDITOR };
+enum flag { RETURNFLAG, ESCAPE, EXITEDITOR, LIBRARYLOADED };
 volatile char Flags;
 
 // Forward references
@@ -642,6 +642,7 @@ void autorunimage () {
     apply(autorun, NULL, &nullenv);
   }
 #elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+  if (!FlashSetup()) error(PSTR("No DataFlash found."));
   object *nullenv = NULL;
   FlashBeginRead();
   object *autorun = (object *)FlashReadInt();
@@ -1117,11 +1118,11 @@ void serialbegin (int address, int baud) {
 
 void serialend (int address) {
   #if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
-  if (address == 1) Serial1.end();
+  if (address == 1) {Serial1.flush(); Serial1.end(); }
   #elif defined(ARDUINO_SAM_DUE)
-  if (address == 1) Serial1.end();
-  else if (address == 2) Serial2.end();
-  else if (address == 3) Serial3.end();
+  if (address == 1) {Serial1.flush(); Serial1.end(); }
+  else if (address == 2) {Serial2.flush(); Serial2.end(); }
+  else if (address == 3) {Serial3.flush(); Serial3.end(); }
   #endif
 }
 
@@ -1664,6 +1665,7 @@ object *tf_return (object *args, object *env) {
 }
 
 object *tf_if (object *args, object *env) {
+  if (args == NULL || cdr(args) == NULL) error(PSTR("'if' missing argument(s)"));
   if (eval(first(args), env) != nil) return second(args);
   args = cddr(args);
   return (args != NULL) ? first(args) : nil;
@@ -1672,6 +1674,7 @@ object *tf_if (object *args, object *env) {
 object *tf_cond (object *args, object *env) {
   while (args != NULL) {
     object *clause = first(args);
+    if (!consp(clause)) error2(clause, PSTR("is an illegal clause"));
     object *test = eval(first(clause), env);
     object *forms = cdr(clause);
     if (test != nil) {
@@ -1683,11 +1686,13 @@ object *tf_cond (object *args, object *env) {
 }
 
 object *tf_when (object *args, object *env) {
+  if (args == NULL) error(PSTR("'when' missing argument"));
   if (eval(first(args), env) != nil) return tf_progn(cdr(args),env);
   else return nil;
 }
 
 object *tf_unless (object *args, object *env) {
+  if (args == NULL) error(PSTR("'unless' missing argument"));
   if (eval(first(args), env) != nil) return nil;
   else return tf_progn(cdr(args),env);
 }
@@ -2609,7 +2614,8 @@ object *fn_stringfn (object *args, object *env) {
   if (type == CHARACTER) {
     object *cell = myalloc();
     cell->car = NULL;
-    cell->integer = fromchar(arg)<<8;
+    uint8_t shift = (sizeof(int)-1)*8;
+    cell->integer = fromchar(arg)<<shift;
     obj->cdr = cell;
   } else if (type == SYMBOL) {
     char *s = name(arg);
@@ -2802,7 +2808,7 @@ object *fn_makunbound (object *args, object *env) {
   (void) env;
   object *key = first(args);
   deletesymbol(key->name);
-  return delassoc(key, &GlobalEnv);
+  return (delassoc(key, &GlobalEnv) != NULL) ? tee : nil;
 }
 
 object *fn_break (object *args, object *env) {
@@ -2957,8 +2963,12 @@ object *fn_pinmode (object *args, object *env) {
   (void) env;
   int pin = integer(first(args));
   object *mode = second(args);
-  if (integerp(mode)) pinMode(pin, mode->integer);
-  else pinMode(pin, (mode != nil));
+  if ((integerp(mode) && mode->integer == 1) || mode != nil) pinMode(pin, OUTPUT);
+  else if (integerp(mode) && mode->integer == 2) pinMode(pin, INPUT_PULLUP);
+  #if defined(INPUT_PULLDOWN)
+  else if (integerp(mode) && mode->integer == 4) pinMode(pin, INPUT_PULLDOWN);
+  #endif
+  else pinMode(pin, INPUT);
   return nil;
 }
 
@@ -3072,7 +3082,7 @@ int atomwidth (object *obj) {
 }
 
 boolean quoted (object *obj) {
-  return (consp(obj) && (car(obj)->name == QUOTE) && consp(cdr(obj)) && (cddr(obj) == NULL));
+  return (consp(obj) && car(obj) != NULL && car(obj)->name == QUOTE && consp(cdr(obj)) && cddr(obj) == NULL);
 }
 
 int subwidth (object *obj, int w) {
@@ -3092,7 +3102,7 @@ int subwidthlist (object *form, int w) {
 
 void superprint (object *form, int lm, pfun_t pfun) {
   if (atom(form)) {
-    if (form->name == NOTHING) pstring(name(form), pfun);
+    if (symbolp(form) && form->name == NOTHING) pstring(name(form), pfun);
     else printobject(form, pfun);
   }
   else if (quoted(form)) { pfun('\''); superprint(car(cdr(form)), lm + 1, pfun); }
@@ -3142,11 +3152,9 @@ object *fn_pprintall (object *args, object *env) {
     object *pair = first(globals);
     object *var = car(pair);
     object *val = cdr(pair);
-    object *head = car(val);
-    object *function = cdr(val);
-    if (head->name == LAMBDA) {
+    if (listp(val) && symbolp(car(val)) && car(val)->name == LAMBDA) {
       pln(pserial);
-      superprint(cons(symbol(DEFUN), cons(var, function)), 0, pserial);
+      superprint(cons(symbol(DEFUN), cons(var, cdr(val))), 0, pserial);
       pln(pserial);
     }
     globals = cdr(globals);
@@ -4069,7 +4077,7 @@ void setup () {
   initworkspace();
   initenv();
   initsleep();
-  pfstring(PSTR("uLisp 2.4 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 2.5 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -4111,12 +4119,13 @@ void loop () {
     if (autorun == 12) autorunimage();
   }
   // Come here after error
+  delay(100); while (Serial.available()) Serial.read();
   for (int i=0; i<TRACEMAX; i++) TraceDepth[i] = 0;
   #if defined(sdcardsupport)
   SDpfile.close(); SDgfile.close();
   #endif
   #if defined(lisplibrary)
-  loadfromlibrary(NULL);
+  if (!tstflag(LIBRARYLOADED)) { setflag(LIBRARYLOADED); loadfromlibrary(NULL); }
   #endif
   repl(NULL);
 }
