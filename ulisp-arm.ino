@@ -1,5 +1,5 @@
-/* uLisp ARM Version 2.5a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 1st December 2018
+/* uLisp ARM Version 2.5c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 7th February 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -3815,7 +3815,13 @@ void pmantissa (float f, pfun_t pfun) {
     int d = (int)(i / mul);
     pfun(d + '0');
     i = i - d * mul;
-    if (i == 0) { if (!point) { pfun('.'); pfun('0'); } return; }
+    if (i == 0) {
+      if (!point) { 
+        for (int k=j; k<sig; k++) pfun('0');
+        pfun('.'); pfun('0');
+      }
+      return;
+    }
     if (j == sig && sig >= 0) { pfun('.'); point = true; }
     mul = mul / 10;
   }
