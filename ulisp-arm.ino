@@ -1,5 +1,5 @@
-/* uLisp ARM 2.8a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 6th August 2019
+/* uLisp ARM 2.8b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 13th August 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -121,10 +121,50 @@ typedef void (*pfun_t)(char);
 #define WORDALIGNED __attribute__((aligned (4)))
 #define BUFFERSIZE 34  // Number of bits+2
 
-#if defined(ARDUINO_SAMD_ZERO)
+#if defined(ADAFRUIT_ITSYBITSY_M0)
   #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define SDCARD_SS_PIN 10
+  #define HASDATAFLASH
+  uint8_t _end;
+
+#elif defined(ADAFRUIT_GEMMA_M0)
+  #define WORKSPACESIZE 3072-SDSIZE      /* Cells (8*bytes) */
+  #define SYMBOLTABLESIZE 512            /* Bytes */
+  uint8_t _end;
+
+#elif defined(ADAFRUIT_FEATHER_M0_EXPRESS)
+  #define WORKSPACESIZE 3072-SDSIZE      /* Cells (8*bytes) */
+  #define SYMBOLTABLESIZE 512            /* Bytes */
+  #define SDCARD_SS_PIN 4
+  uint8_t _end;
+
+#elif defined(ADAFRUIT_METRO_M4_EXPRESS)
+  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define HASDATAFLASH
+  uint8_t _end;
+  
+#elif defined(ADAFRUIT_ITSYBITSY_M4)
+  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define HASDATAFLASH
+  uint8_t _end;
+
+#elif defined(ADAFRUIT_FEATHER_M4)
+  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define HASDATAFLASH
+  uint8_t _end;
+
+#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
+  #define WORKSPACESIZE 30720-SDSIZE      /* Cells (8*bytes) */
+  #define FLASHSIZE 65536                 /* Bytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define HASDATAFLASH
   uint8_t _end;
 
 #elif defined(ARDUINO_SAM_DUE)
@@ -138,22 +178,10 @@ typedef void (*pfun_t)(char);
   #define SYMBOLTABLESIZE 512             /* Bytes */
   uint8_t _end;
 
-#elif defined(ARDUINO_METRO_M4)
-  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  uint8_t _end;
-
-#elif defined(ARDUINO_ITSYBITSY_M4)
-  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  uint8_t _end;
-
-#elif defined(ARDUINO_FEATHER_M4)
-  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
+#elif defined(ARDUINO_SAMD_ZERO)         /* Put this last, otherwise overrides the Adafruit boards */
+  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define SDCARD_SS_PIN 10
   uint8_t _end;
 
 #elif defined(_VARIANT_BBC_MICROBIT_)
@@ -409,7 +437,7 @@ void SDWriteInt (File file, int data) {
   file.write(data & 0xFF); file.write(data>>8 & 0xFF);
   file.write(data>>16 & 0xFF); file.write(data>>24 & 0xFF);
 }
-#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+#elif defined(HASDATAFLASH)
 // Winbond DataFlash support for Adafruit M4 Express boards
 #define PAGEPROG      0x02
 #define READSTATUS    0x05
@@ -419,12 +447,16 @@ void SDWriteInt (File file, int data) {
 #define READID        0x90
 
 // Arduino pins used for dataflash
-#if defined(ARDUINO_ITSYBITSY_M4)
+#if defined(ADAFRUIT_ITSYBITSY_M0)
+const int sck = 38, ssel = 39, mosi = 37, miso = 36;
+#elif defined(ADAFRUIT_ITSYBITSY_M4)
 const int sck = 32, ssel = 33, mosi = 34, miso = 35;
 #elif defined(ARDUINO_METRO_M4)
 const int sck = 41, ssel = 42, mosi = 43, miso = 44;
-#elif defined(ARDUINO_FEATHER_M4)
+#elif defined(ADAFRUIT_FEATHER_M4)
 const int sck = 34, ssel = 35, mosi = 36, miso = 37;
+#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
+const int sck = 89, ssel = 90, mosi = 91, miso = 92;
 #endif
 
 boolean FlashSetup () {
@@ -439,7 +471,7 @@ boolean FlashSetup () {
   for(uint8_t i=0; i<4; i++) manID = FlashRead();
   devID = FlashRead();
   digitalWrite(ssel, HIGH);
-  return (devID == 0x14); // Found correct device
+  return (devID == 0x14 || devID == 0x16); // Found correct device
 }
 
 inline void FlashWrite (uint8_t data) {
@@ -542,7 +574,7 @@ int saveimage (object *arg) {
   }
   file.close();
   return imagesize;
-#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+#elif defined(HASDATAFLASH)
   if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, PSTR("illegal argument"), arg);
   if (!FlashSetup()) error2(SAVEIMAGE, PSTR("no DataFlash found."));
   // Save to DataFlash
@@ -578,7 +610,7 @@ int SDReadInt (File file) {
   uintptr_t b2 = file.read(); uintptr_t b3 = file.read();
   return b0 | b1<<8 | b2<<16 | b3<<24;
 }
-#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+#elif defined(HASDATAFLASH)
 int FlashReadInt () {
   uint8_t b0 = FlashReadByte(); uint8_t b1 = FlashReadByte();
   uint8_t b2 = FlashReadByte(); uint8_t b3 = FlashReadByte();
@@ -610,7 +642,7 @@ int loadimage (object *arg) {
   file.close();
   gc(NULL, NULL);
   return imagesize;
-#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+#elif defined(HASDATAFLASH)
   if (!FlashSetup()) error2(LOADIMAGE, PSTR("no DataFlash found."));
   FlashBeginRead();
   FlashReadInt(); // Skip eval address
@@ -648,7 +680,7 @@ void autorunimage () {
     loadimage(NULL);
     apply(0, autorun, NULL, NULL);
   }
-#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4)
+#elif defined(HASDATAFLASH)
   if (!FlashSetup()) error2(0, PSTR("no DataFlash found."));
   FlashBeginRead();
   object *autorun = (object *)FlashReadInt();
@@ -1138,12 +1170,12 @@ void I2Cstop (uint8_t read) {
 // Streams
 
 inline int spiread () { return SPI.transfer(0); }
-#if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4) || defined(MAX32620)
-inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
-#elif defined(ARDUINO_SAM_DUE)
+#if defined(ARDUINO_SAM_DUE)
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 inline int serial2read () { while (!Serial2.available()) testescape(); return Serial2.read(); }
 inline int serial3read () { while (!Serial3.available()) testescape(); return Serial3.read(); }
+#elif !defined(_VARIANT_BBC_MICROBIT_)
+inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 #endif
 #if defined(sdcardsupport)
 File SDpfile, SDgfile;
@@ -1158,24 +1190,23 @@ inline int SDread () {
 #endif
 
 void serialbegin (int address, int baud) {
-  #if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4) || defined(MAX32620)
-  if (address == 1) Serial1.begin((long)baud*100);
-  else error(WITHSERIAL, PSTR("port not supported"), number(address));
-  #elif defined(ARDUINO_SAM_DUE)
+  #if defined(ARDUINO_SAM_DUE)
   if (address == 1) Serial1.begin((long)baud*100);
   else if (address == 2) Serial2.begin((long)baud*100);
   else if (address == 3) Serial3.begin((long)baud*100);
-  else error(WITHSERIAL, PSTR("port not supported"), number(address));
+  #elif !defined(_VARIANT_BBC_MICROBIT_)
+  if (address == 1) Serial1.begin((long)baud*100);
   #endif
+  else error(WITHSERIAL, PSTR("port not supported"), number(address));
 }
 
 void serialend (int address) {
-  #if defined(ARDUINO_SAMD_ZERO) || defined(ARDUINO_SAMD_MKRZERO) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4) || defined(MAX32620)
-  if (address == 1) {Serial1.flush(); Serial1.end(); }
-  #elif defined(ARDUINO_SAM_DUE)
+  #if defined(ARDUINO_SAM_DUE)
   if (address == 1) {Serial1.flush(); Serial1.end(); }
   else if (address == 2) {Serial2.flush(); Serial2.end(); }
   else if (address == 3) {Serial3.flush(); Serial3.end(); }
+  #elif !defined(_VARIANT_BBC_MICROBIT_)
+  if (address == 1) {Serial1.flush(); Serial1.end(); }
   #endif
 }
 
@@ -1191,7 +1222,11 @@ gfun_t gstreamfun (object *args) {
   else if (streamtype == SPISTREAM) gfun = spiread;
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) gfun = gserial;
-    #if !defined(_VARIANT_BBC_MICROBIT_)
+    #if defined(ARDUINO_SAM_DUE)
+    else if (address == 1) gfun = serial1read;
+    else if (address == 2) gfun = serial2read;
+    else if (address == 3) gfun = serial3read;
+    #elif !defined(_VARIANT_BBC_MICROBIT_)
     else if (address == 1) gfun = serial1read;
     #endif
   }
@@ -1203,7 +1238,11 @@ gfun_t gstreamfun (object *args) {
 }
 
 inline void spiwrite (char c) { SPI.transfer(c); }
-#if !defined(_VARIANT_BBC_MICROBIT_)
+#if defined(ARDUINO_SAM_DUE)
+inline void serial1write (char c) { Serial1.write(c); }
+inline void serial2write (char c) { Serial2.write(c); }
+inline void serial3write (char c) { Serial3.write(c); }
+#elif !defined(_VARIANT_BBC_MICROBIT_)
 inline void serial1write (char c) { Serial1.write(c); }
 #endif
 #if defined(sdcardsupport)
@@ -1222,7 +1261,11 @@ pfun_t pstreamfun (object *args) {
   else if (streamtype == SPISTREAM) pfun = spiwrite;
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
-    #if !defined(_VARIANT_BBC_MICROBIT_)
+    #if defined(ARDUINO_SAM_DUE)
+    else if (address == 1) pfun = serial1write;
+    else if (address == 2) pfun = serial2write;
+    else if (address == 3) pfun = serial3write;
+    #elif !defined(_VARIANT_BBC_MICROBIT_)
     else if (address == 1) pfun = serial1write;
     #endif
   }   
@@ -1242,12 +1285,18 @@ void checkanalogread (int pin) {
   if (!(pin>=14 && pin<=19)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!(pin>=15 && pin<=21)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ADAFRUIT_ITSYBITSY_M0)
+  if (!(pin>=14 && pin<=25)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ADAFRUIT_GEMMA_M0)
+  if (!(pin>=8 && pin<=10)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_METRO_M4)
   if (!(pin>=14 && pin<=21)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_ITSYBITSY_M4)
+#elif defined(ADAFRUIT_ITSYBITSY_M4)
   if (!(pin>=14 && pin<=19)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_FEATHER_M4)
+#elif defined(ADAFRUIT_FEATHER_M4)
   if (!(pin>=14 && pin<=19)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
+  if (!((pin>=67 && pin<=74) || (pin>=54 && pin<=61))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(_VARIANT_BBC_MICROBIT_)
   if (!((pin>=0 && pin<=4) || pin==10)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(MAX32620)
@@ -1262,12 +1311,18 @@ void checkanalogwrite (int pin) {
   if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || pin==14)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!((pin>=0 && pin<=8) || pin==10 || pin==18 || pin==19)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+#elif defined(ADAFRUIT_ITSYBITSY_M0)
+  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || (pin>=15 && pin<=16) || (pin>=22 && pin<=25))) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+#elif defined(ADAFRUIT_GEMMA_M0)
+  if (!(pin==0 || pin==2 || pin==9 || pin==10)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_METRO_M4)
   if (!(pin>=0 && pin<=15)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_ITSYBITSY_M4)
+#elif defined(ADAFRUIT_ITSYBITSY_M4)
   if (!(pin==0 || pin==1 || pin==4 || pin==5 || pin==7 || (pin>=9 && pin<=15) || pin==21 || pin==22)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_FEATHER_M4)
+#elif defined(ADAFRUIT_FEATHER_M4)
   if (!(pin==0 || pin==1 || (pin>=4 && pin<=6) || (pin>=9 && pin<=13) || pin==14 || pin==15 || pin==17 || pin==21 || pin==22)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
+  if (!((pin>=2 && pin<=9) || pin==11 || (pin>=13 && pin<=45) || pin==48 || (pin>=50 && pin<=53) || pin==58 || pin==61 || pin==68 || pin==69)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
 #elif defined(_VARIANT_BBC_MICROBIT_)
   if (!(pin>=0 && pin<=2)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
 #elif defined(MAX32620)
