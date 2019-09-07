@@ -1,5 +1,5 @@
-/* uLisp ARM 2.8b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 13th August 2019
+/* uLisp ARM 2.8c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 7th September 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -123,9 +123,8 @@ typedef void (*pfun_t)(char);
 
 #if defined(ADAFRUIT_ITSYBITSY_M0)
   #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
+  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define HASDATAFLASH
   uint8_t _end;
 
 #elif defined(ADAFRUIT_GEMMA_M0)
@@ -141,30 +140,25 @@ typedef void (*pfun_t)(char);
 
 #elif defined(ADAFRUIT_METRO_M4_EXPRESS)
   #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define HASDATAFLASH
+  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   uint8_t _end;
   
 #elif defined(ADAFRUIT_ITSYBITSY_M4)
   #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
+  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define HASDATAFLASH
   uint8_t _end;
 
 #elif defined(ADAFRUIT_FEATHER_M4)
   #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
+  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define HASDATAFLASH
   uint8_t _end;
 
 #elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
   #define WORKSPACESIZE 30720-SDSIZE      /* Cells (8*bytes) */
-  #define FLASHSIZE 65536                 /* Bytes */
+  #define DATAFLASHSIZE 8192000           /* 8 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define HASDATAFLASH
   uint8_t _end;
 
 #elif defined(ARDUINO_SAM_DUE)
@@ -437,7 +431,7 @@ void SDWriteInt (File file, int data) {
   file.write(data & 0xFF); file.write(data>>8 & 0xFF);
   file.write(data>>16 & 0xFF); file.write(data>>24 & 0xFF);
 }
-#elif defined(HASDATAFLASH)
+#elif defined(DATAFLASHSIZE)
 // Winbond DataFlash support for Adafruit M4 Express boards
 #define PAGEPROG      0x02
 #define READSTATUS    0x05
@@ -507,22 +501,24 @@ inline void FlashEndRead(void) {
   digitalWrite(ssel, 1);
 }
 
-void FlashBeginWrite () {
+void FlashBeginWrite (int blocks) {
   FlashBusy();
   // Erase 64K
   FlashWriteEnable();
-  digitalWrite(ssel, 0);
-  FlashWrite(BLOCK64K);
-  FlashWrite(0); FlashWrite(0); FlashWrite(0);
-  digitalWrite(ssel, 1);
-  FlashBusy();
+  for (int b=0; b<blocks; b++) {
+    digitalWrite(ssel, 0);
+    FlashWrite(BLOCK64K);
+    FlashWrite(0); FlashWrite(b); FlashWrite(0);
+    digitalWrite(ssel, 1);
+    FlashBusy();
+  }
 }
 
 inline uint8_t FlashReadByte () {
   return FlashRead();
 }
 
-void FlashWriteByte (unsigned int *addr, uint8_t data) {
+void FlashWriteByte (unsigned long *addr, uint8_t data) {
   // New page
   if (((*addr) & 0xFF) == 0) {
     digitalWrite(ssel, 1);
@@ -542,7 +538,7 @@ inline void FlashEndWrite (void) {
   digitalWrite(ssel, 1);
 }
 
-void FlashWriteInt (unsigned int *addr, int data) {
+void FlashWriteInt (unsigned long *addr, int data) {
   FlashWriteByte(addr, data & 0xFF); FlashWriteByte(addr, data>>8 & 0xFF);
   FlashWriteByte(addr, data>>16 & 0xFF); FlashWriteByte(addr, data>>24 & 0xFF);
 }
@@ -574,14 +570,14 @@ int saveimage (object *arg) {
   }
   file.close();
   return imagesize;
-#elif defined(HASDATAFLASH)
+#elif defined(DATAFLASHSIZE)
   if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, PSTR("illegal argument"), arg);
   if (!FlashSetup()) error2(SAVEIMAGE, PSTR("no DataFlash found."));
   // Save to DataFlash
   int bytesneeded = imagesize*8 + SYMBOLTABLESIZE + 20;
-  if (bytesneeded > FLASHSIZE) error(SAVEIMAGE, PSTR("image size too large"), number(imagesize));
-  unsigned int addr = 0;
-  FlashBeginWrite();
+  if (bytesneeded > DATAFLASHSIZE) error(SAVEIMAGE, PSTR("image size too large"), number(imagesize));
+  unsigned long addr = 0;
+  FlashBeginWrite(ceil(bytesneeded/65536));
   FlashWriteInt(&addr, (uintptr_t)arg);
   FlashWriteInt(&addr, imagesize);
   FlashWriteInt(&addr, (uintptr_t)GlobalEnv);
@@ -610,7 +606,7 @@ int SDReadInt (File file) {
   uintptr_t b2 = file.read(); uintptr_t b3 = file.read();
   return b0 | b1<<8 | b2<<16 | b3<<24;
 }
-#elif defined(HASDATAFLASH)
+#elif defined(DATAFLASHSIZE)
 int FlashReadInt () {
   uint8_t b0 = FlashReadByte(); uint8_t b1 = FlashReadByte();
   uint8_t b2 = FlashReadByte(); uint8_t b3 = FlashReadByte();
@@ -642,7 +638,7 @@ int loadimage (object *arg) {
   file.close();
   gc(NULL, NULL);
   return imagesize;
-#elif defined(HASDATAFLASH)
+#elif defined(DATAFLASHSIZE)
   if (!FlashSetup()) error2(LOADIMAGE, PSTR("no DataFlash found."));
   FlashBeginRead();
   FlashReadInt(); // Skip eval address
@@ -680,7 +676,7 @@ void autorunimage () {
     loadimage(NULL);
     apply(0, autorun, NULL, NULL);
   }
-#elif defined(HASDATAFLASH)
+#elif defined(DATAFLASHSIZE)
   if (!FlashSetup()) error2(0, PSTR("no DataFlash found."));
   FlashBeginRead();
   object *autorun = (object *)FlashReadInt();
@@ -1005,7 +1001,7 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
   if (trace) {
     indent(TraceDepth[trace-1]<<1, pserial);
     pint(TraceDepth[trace-1]++, pserial);
-    pserial(':'); pserial(' '); pserial('('); pstring(lookupbuiltin(name), pserial);
+    pserial(':'); pserial(' '); pserial('('); pstring(symbolname(name), pserial);
   }
   object *params = first(function);
   function = cdr(function);
