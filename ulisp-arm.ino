@@ -1,5 +1,5 @@
-/* uLisp ARM 2.8c - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 7th September 2019
+/* uLisp ARM 2.8d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 8th September 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -577,7 +577,7 @@ int saveimage (object *arg) {
   int bytesneeded = imagesize*8 + SYMBOLTABLESIZE + 20;
   if (bytesneeded > DATAFLASHSIZE) error(SAVEIMAGE, PSTR("image size too large"), number(imagesize));
   unsigned long addr = 0;
-  FlashBeginWrite(ceil(bytesneeded/65536));
+  FlashBeginWrite((bytesneeded+65535)/65536);
   FlashWriteInt(&addr, (uintptr_t)arg);
   FlashWriteInt(&addr, imagesize);
   FlashWriteInt(&addr, (uintptr_t)GlobalEnv);
