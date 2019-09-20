@@ -1,5 +1,5 @@
-/* uLisp ARM 2.8d - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 8th September 2019
+/* uLisp ARM 2.9 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 20th September 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -69,8 +69,8 @@ enum token { UNUSED, BRA, KET, QUO, DOT };
 enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM };
 
 enum function { NIL, TEE, NOTHING, OPTIONAL, AMPREST, LAMBDA, LET, LETSTAR, CLOSURE, SPECIAL_FORMS, QUOTE,
-DEFUN, DEFVAR, SETQ, LOOP, PUSH, POP, INCF, DECF, SETF, DOLIST, DOTIMES, TRACE, UNTRACE, FORMILLIS,
-WITHSERIAL, WITHI2C, WITHSPI, WITHSDCARD, TAIL_FORMS, PROGN, RETURN, IF, COND, WHEN, UNLESS, CASE, AND,
+DEFUN, DEFVAR, SETQ, LOOP, RETURN, PUSH, POP, INCF, DECF, SETF, DOLIST, DOTIMES, TRACE, UNTRACE,
+FORMILLIS, WITHSERIAL, WITHI2C, WITHSPI, WITHSDCARD, TAIL_FORMS, PROGN, IF, COND, WHEN, UNLESS, CASE, AND,
 OR, FUNCTIONS, NOT, NULLFN, CONS, ATOM, LISTP, CONSP, SYMBOLP, STREAMP, EQ, CAR, FIRST, CDR, REST, CAAR,
 CADR, SECOND, CDAR, CDDR, CAAAR, CAADR, CADAR, CADDR, THIRD, CDAAR, CDADR, CDDAR, CDDDR, LENGTH, LIST,
 REVERSE, NTH, ASSOC, MEMBER, APPLY, FUNCALL, APPEND, MAPC, MAPCAR, MAPCAN, ADD, SUBTRACT, MULTIPLY,
@@ -115,76 +115,78 @@ typedef struct {
 
 typedef int (*gfun_t)();
 typedef void (*pfun_t)(char);
+typedef int PinMode;
 
 // Workspace
 #define PERSIST __attribute__((section(".text")))
 #define WORDALIGNED __attribute__((aligned (4)))
 #define BUFFERSIZE 34  // Number of bits+2
 
-#if defined(ADAFRUIT_ITSYBITSY_M0)
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+#if defined(ARDUINO_ITSYBITSY_M0)
+  #define WORKSPACESIZE 3072-SDSIZE       /* Objects (8*bytes) */
   #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   uint8_t _end;
 
-#elif defined(ADAFRUIT_GEMMA_M0)
-  #define WORKSPACESIZE 3072-SDSIZE      /* Cells (8*bytes) */
-  #define SYMBOLTABLESIZE 512            /* Bytes */
+#elif defined(ARDUINO_GEMMA_M0)
+  #define WORKSPACESIZE 3072-SDSIZE       /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
   uint8_t _end;
 
-#elif defined(ADAFRUIT_FEATHER_M0_EXPRESS)
-  #define WORKSPACESIZE 3072-SDSIZE      /* Cells (8*bytes) */
-  #define SYMBOLTABLESIZE 512            /* Bytes */
+#elif defined(ARDUINO_FEATHER_M0_EXPRESS)
+  #define WORKSPACESIZE 3072-SDSIZE       /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
   #define SDCARD_SS_PIN 4
   uint8_t _end;
 
-#elif defined(ADAFRUIT_METRO_M4_EXPRESS)
-  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
+#elif defined(ARDUINO_METRO_M4)
+  #define WORKSPACESIZE 20480-SDSIZE      /* Objects (8*bytes) */
   #define DATAFLASHSIZE 2048000           /* 2 MBytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
   
-#elif defined(ADAFRUIT_ITSYBITSY_M4)
-  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
+#elif defined(ARDUINO_ITSYBITSY_M4)
+  #define WORKSPACESIZE 20480-SDSIZE      /* Objects (8*bytes) */
   #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
 
-#elif defined(ADAFRUIT_FEATHER_M4)
-  #define WORKSPACESIZE 20480-SDSIZE      /* Cells (8*bytes) */
+#elif defined(ARDUINO_FEATHER_M4)
+  #define WORKSPACESIZE 20480-SDSIZE      /* Objects (8*bytes) */
   #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
 
-#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
-  #define WORKSPACESIZE 30720-SDSIZE      /* Cells (8*bytes) */
+#elif defined(ARDUINO_GRAND_CENTRAL_M4)
+  #define WORKSPACESIZE 30720-SDSIZE      /* Objects (8*bytes) */
   #define DATAFLASHSIZE 8192000           /* 8 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
 
 #elif defined(ARDUINO_SAM_DUE)
-  #define WORKSPACESIZE 10240-SDSIZE      /* Cells (8*bytes) */
+  #define WORKSPACESIZE 10240-SDSIZE      /* Objects (8*bytes) */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define SDCARD_SS_PIN 10
   extern uint8_t _end;
 
 #elif defined(ARDUINO_SAMD_MKRZERO)
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define WORKSPACESIZE 3072-SDSIZE       /* Objects (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   uint8_t _end;
 
-#elif defined(ARDUINO_SAMD_ZERO)         /* Put this last, otherwise overrides the Adafruit boards */
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+#elif defined(ARDUINO_SAMD_ZERO)          /* Put this last, otherwise overrides the Adafruit boards */
+  #define WORKSPACESIZE 3072-SDSIZE       /* Objects (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define SDCARD_SS_PIN 10
   uint8_t _end;
 
 #elif defined(_VARIANT_BBC_MICROBIT_)
-  #define WORKSPACESIZE 1280              /* Cells (8*bytes) */
+  #define WORKSPACESIZE 1280              /* Objects (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   uint8_t _end;
 
 #elif defined(MAX32620)
-  #define WORKSPACESIZE 24576-SDSIZE      /* Cells (8*bytes) */
+  #define WORKSPACESIZE 24576-SDSIZE      /* Objects (8*bytes) */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   uint8_t _end;
 
@@ -210,10 +212,9 @@ int GlobalStringIndex = 0;
 char BreakLevel = 0;
 char LastChar = 0;
 char LastPrint = 0;
-char PrintReadably = 1;
 
 // Flags
-enum flag { RETURNFLAG, ESCAPE, EXITEDITOR, LIBRARYLOADED };
+enum flag { PRINTREADABLY, RETURNFLAG, ESCAPE, EXITEDITOR, LIBRARYLOADED };
 volatile char Flags;
 
 // Forward references
@@ -441,15 +442,15 @@ void SDWriteInt (File file, int data) {
 #define READID        0x90
 
 // Arduino pins used for dataflash
-#if defined(ADAFRUIT_ITSYBITSY_M0)
+#if defined(ARDUINO_ITSYBITSY_M0)
 const int sck = 38, ssel = 39, mosi = 37, miso = 36;
-#elif defined(ADAFRUIT_ITSYBITSY_M4)
+#elif defined(ARDUINO_ITSYBITSY_M4)
 const int sck = 32, ssel = 33, mosi = 34, miso = 35;
 #elif defined(ARDUINO_METRO_M4)
 const int sck = 41, ssel = 42, mosi = 43, miso = 44;
-#elif defined(ADAFRUIT_FEATHER_M4)
+#elif defined(ARDUINO_FEATHER_M4)
 const int sck = 34, ssel = 35, mosi = 36, miso = 37;
-#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
+#elif defined(ARDUINO_GRAND_CENTRAL_M4)
 const int sck = 89, ssel = 90, mosi = 91, miso = 92;
 #endif
 
@@ -722,11 +723,11 @@ const char notanumber[] PROGMEM = "argument is not a number";
 const char notastring[] PROGMEM = "argument is not a string";
 const char notalist[] PROGMEM = "argument is not a list";
 const char notproper[] PROGMEM = "argument is not a proper list";
-const char notproper2[] PROGMEM = "second argument is not a proper list";
-const char notproper3[] PROGMEM = "third argument is not a proper list";
 const char noargument[] PROGMEM = "missing argument";
 const char nostream[] PROGMEM = "missing stream argument";
 const char overflow[] PROGMEM = "arithmetic overflow";
+const char invalidpin[] PROGMEM = "invalid pin";
+const char resultproper[] PROGMEM = "result is not a proper list";
 
 // Tracing
 
@@ -1276,53 +1277,53 @@ pfun_t pstreamfun (object *args) {
 
 void checkanalogread (int pin) {
 #if defined(ARDUINO_SAM_DUE)
-  if (!(pin>=54 && pin<=65)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+  if (!(pin>=54 && pin<=65)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_SAMD_ZERO)
-  if (!(pin>=14 && pin<=19)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+  if (!(pin>=14 && pin<=19)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_SAMD_MKRZERO)
-  if (!(pin>=15 && pin<=21)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_ITSYBITSY_M0)
-  if (!(pin>=14 && pin<=25)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_GEMMA_M0)
-  if (!(pin>=8 && pin<=10)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+  if (!(pin>=15 && pin<=21)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_ITSYBITSY_M0)
+  if (!(pin>=14 && pin<=25)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_GEMMA_M0)
+  if (!(pin>=8 && pin<=10)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_METRO_M4)
-  if (!(pin>=14 && pin<=21)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_ITSYBITSY_M4)
-  if (!(pin>=14 && pin<=19)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_FEATHER_M4)
-  if (!(pin>=14 && pin<=19)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
-  if (!((pin>=67 && pin<=74) || (pin>=54 && pin<=61))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+  if (!(pin>=14 && pin<=21)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_ITSYBITSY_M4)
+  if (!(pin>=14 && pin<=19)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_FEATHER_M4)
+  if (!(pin>=14 && pin<=19)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_GRAND_CENTRAL_M4)
+  if (!((pin>=67 && pin<=74) || (pin>=54 && pin<=61))) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(_VARIANT_BBC_MICROBIT_)
-  if (!((pin>=0 && pin<=4) || pin==10)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+  if (!((pin>=0 && pin<=4) || pin==10)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(MAX32620)
-  if (!(pin>=49 && pin<=52)) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+  if (!(pin>=49 && pin<=52)) error(ANALOGREAD, invalidpin, number(pin));
 #endif
 }
 
 void checkanalogwrite (int pin) {
 #if defined(ARDUINO_SAM_DUE)
-  if (!((pin>=2 && pin<=13) || pin==66 || pin==67)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+  if (!((pin>=2 && pin<=13) || pin==66 || pin==67)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_SAMD_ZERO)
-  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || pin==14)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || pin==14)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_SAMD_MKRZERO)
-  if (!((pin>=0 && pin<=8) || pin==10 || pin==18 || pin==19)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_ITSYBITSY_M0)
-  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || (pin>=15 && pin<=16) || (pin>=22 && pin<=25))) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_GEMMA_M0)
-  if (!(pin==0 || pin==2 || pin==9 || pin==10)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+  if (!((pin>=0 && pin<=8) || pin==10 || pin==18 || pin==19)) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_ITSYBITSY_M0)
+  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || (pin>=15 && pin<=16) || (pin>=22 && pin<=25))) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_GEMMA_M0)
+  if (!(pin==0 || pin==2 || pin==9 || pin==10)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_METRO_M4)
-  if (!(pin>=0 && pin<=15)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_ITSYBITSY_M4)
-  if (!(pin==0 || pin==1 || pin==4 || pin==5 || pin==7 || (pin>=9 && pin<=15) || pin==21 || pin==22)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_FEATHER_M4)
-  if (!(pin==0 || pin==1 || (pin>=4 && pin<=6) || (pin>=9 && pin<=13) || pin==14 || pin==15 || pin==17 || pin==21 || pin==22)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ADAFRUIT_GRAND_CENTRAL_M4)
-  if (!((pin>=2 && pin<=9) || pin==11 || (pin>=13 && pin<=45) || pin==48 || (pin>=50 && pin<=53) || pin==58 || pin==61 || pin==68 || pin==69)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+  if (!(pin>=0 && pin<=15)) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_ITSYBITSY_M4)
+  if (!(pin==0 || pin==1 || pin==4 || pin==5 || pin==7 || (pin>=9 && pin<=15) || pin==21 || pin==22)) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_FEATHER_M4)
+  if (!(pin==0 || pin==1 || (pin>=4 && pin<=6) || (pin>=9 && pin<=13) || pin==14 || pin==15 || pin==17 || pin==21 || pin==22)) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_GRAND_CENTRAL_M4)
+  if (!((pin>=2 && pin<=9) || pin==11 || (pin>=13 && pin<=45) || pin==48 || (pin>=50 && pin<=53) || pin==58 || pin==61 || pin==68 || pin==69)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(_VARIANT_BBC_MICROBIT_)
-  if (!(pin>=0 && pin<=2)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+  if (!(pin>=0 && pin<=2)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(MAX32620)
-  if (!((pin>=20 && pin<=29) || pin==32 || (pin>=40 && pin<=48))) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+  if (!((pin>=20 && pin<=29) || pin==32 || (pin>=40 && pin<=48))) error(ANALOGWRITE, invalidpin, number(pin));
 #endif
 }
 
@@ -1454,7 +1455,6 @@ object *sp_setq (object *args, object *env) {
 }
 
 object *sp_loop (object *args, object *env) {
-  clrflag(RETURNFLAG);
   object *start = args;
   for (;;) {
     args = start;
@@ -1467,6 +1467,12 @@ object *sp_loop (object *args, object *env) {
       args = cdr(args);
     }
   }
+}
+
+object *sp_return (object *args, object *env) {
+  object *result = eval(tf_progn(args,env), env);
+  setflag(RETURNFLAG);
+  return result;
 }
 
 object *sp_push (object *args, object *env) {
@@ -1567,22 +1573,26 @@ object *sp_dolist (object *args, object *env) {
   if (args == NULL) error2(DOLIST, noargument);
   object *params = first(args);
   object *var = first(params);
-  object *result;
   object *list = eval(second(params), env);
   push(list, GCStack); // Don't GC the list
   object *pair = cons(var,nil);
   push(pair,env);
   params = cdr(cdr(params));
-  object *forms = cdr(args);
+  args = cdr(args);
   while (list != NULL) {
     if (improperp(list)) error(DOLIST, notproper, list);
     cdr(pair) = first(list);
-    list = cdr(list);
-    result = eval(tf_progn(forms,env), env);
-    if (tstflag(RETURNFLAG)) {
-      clrflag(RETURNFLAG);
-      return result;
+    object *forms = args;
+    while (forms != NULL) {
+      object *result = eval(car(forms), env);
+      if (tstflag(RETURNFLAG)) {
+        clrflag(RETURNFLAG);
+        pop(GCStack);
+        return result;
+      }
+      forms = cdr(forms);
     }
+    list = cdr(list);
   }
   cdr(pair) = nil;
   pop(GCStack);
@@ -1594,21 +1604,24 @@ object *sp_dotimes (object *args, object *env) {
   if (args == NULL) error2(DOTIMES, noargument);
   object *params = first(args);
   object *var = first(params);
-  object *result;
   int count = checkinteger(DOTIMES, eval(second(params), env));
   int index = 0;
   params = cdr(cdr(params));
   object *pair = cons(var,number(0));
   push(pair,env);
-  object *forms = cdr(args);
+  args = cdr(args);
   while (index < count) {
     cdr(pair) = number(index);
-    index++;
-    result = eval(tf_progn(forms,env), env);
-    if (tstflag(RETURNFLAG)) {
-      clrflag(RETURNFLAG);
-      return result;
+    object *forms = args;
+    while (forms != NULL) {
+      object *result = eval(car(forms), env);
+      if (tstflag(RETURNFLAG)) {
+        clrflag(RETURNFLAG);
+        return result;
+      }
+      forms = cdr(forms);
     }
+    index++;
   }
   cdr(pair) = number(index);
   if (params == NULL) return nil;
@@ -1774,17 +1787,11 @@ object *tf_progn (object *args, object *env) {
   if (args == NULL) return nil;
   object *more = cdr(args);
   while (more != NULL) {
-    object *result = eval(car(args),env);
-    if (tstflag(RETURNFLAG)) return result;
+    eval(car(args), env);
     args = more;
     more = cdr(args);
   }
   return car(args);
-}
-
-object *tf_return (object *args, object *env) {
-  setflag(RETURNFLAG);
-  return tf_progn(args, env);
 }
 
 object *tf_if (object *args, object *env) {
@@ -2004,7 +2011,7 @@ object *fn_nth (object *args, object *env) {
   int n = checkinteger(NTH, first(args));
   object *list = second(args);
   while (list != NULL) {
-    if (improperp(list)) error(NTH, notproper2, list);
+    if (improperp(list)) error(NTH, notproper, list);
     if (n == 0) return car(list);
     list = cdr(list);
     n--;
@@ -2070,100 +2077,93 @@ object *fn_append (object *args, object *env) {
 
 object *fn_mapc (object *args, object *env) {
   object *function = first(args);
-  object *list1 = second(args);
-  object *result = list1;
-  object *list2 = cddr(args);
-  if (list2 != NULL) {
-    list2 = car(list2);
-    object *result2 = list2;
-    while (list1 != NULL && list2 != NULL) {
-      if (improperp(list1)) error(MAPC, notproper2, result);
-      if (improperp(list2)) error(MAPC, notproper3, result2);
-      apply(MAPC, function, cons(car(list1),cons(car(list2),NULL)), env);
-      list1 = cdr(list1); list2 = cdr(list2);
+  args = cdr(args);
+  object *result = first(args);
+  object *params = cons(NULL, NULL);
+  push(params,GCStack);
+  // Make parameters
+  while (true) {
+    object *tailp = params;
+    object *lists = args;
+    while (lists != NULL) {
+      object *list = car(lists);
+      if (list == NULL) {
+         pop(GCStack);
+         return result;
+      }
+      if (improperp(list)) error(MAPC, notproper, list);
+      object *obj = cons(first(list),NULL);
+      car(lists) = cdr(list);
+      cdr(tailp) = obj; tailp = obj;
+      lists = cdr(lists);
     }
-  } else {
-    while (list1 != NULL) {
-      if (improperp(list1)) error(MAPC, notproper2, result);
-      apply(MAPC, function, cons(car(list1),NULL), env);
-      list1 = cdr(list1);
-    }
+    apply(MAPC, function, cdr(params), env);
   }
-  return result;
 }
 
 object *fn_mapcar (object *args, object *env) {
   object *function = first(args);
-  object *list1 = second(args);
-  object *result = list1;
-  object *list2 = cddr(args);
-  object *head = cons(NULL, NULL);
+  args = cdr(args);
+  object *params = cons(NULL, NULL);
+  push(params,GCStack);
+  object *head = cons(NULL, NULL); 
   push(head,GCStack);
   object *tail = head;
-  if (list2 != NULL) {
-    list2 = car(list2);
-    object *result2 = list2;
-    while (list1 != NULL && list2 != NULL) {
-      if (improperp(list1)) error(MAPCAR, notproper2, result);
-      if (improperp(list2)) error(MAPCAR, notproper3, result2);
-      object *result = apply(MAPCAR, function, cons(car(list1), cons(car(list2),NULL)), env);
-      object *obj = cons(result,NULL);
-      cdr(tail) = obj;
-      tail = obj;
-      list1 = cdr(list1); list2 = cdr(list2);
+  // Make parameters
+  while (true) {
+    object *tailp = params;
+    object *lists = args;
+    while (lists != NULL) {
+      object *list = car(lists);
+      if (list == NULL) {
+         pop(GCStack);
+         pop(GCStack);
+         return cdr(head);
+      }
+      if (improperp(list)) error(MAPCAR, notproper, list);
+      object *obj = cons(first(list),NULL);
+      car(lists) = cdr(list);
+      cdr(tailp) = obj; tailp = obj;
+      lists = cdr(lists);
     }
-  } else if (list1 != NULL) {
-    while (list1 != NULL) {
-      if (improperp(list1)) error(MAPCAR, notproper2, result);
-      object *result = apply(MAPCAR, function, cons(car(list1),NULL), env);
-      object *obj = cons(result,NULL);
-      cdr(tail) = obj;
-      tail = obj;
-      list1 = cdr(list1);
-    }
+    object *result = apply(MAPCAR, function, cdr(params), env);
+    object *obj = cons(result,NULL);
+    cdr(tail) = obj; tail = obj;
   }
-  pop(GCStack);
-  return cdr(head);
 }
 
 object *fn_mapcan (object *args, object *env) {
   object *function = first(args);
-  object *list1 = second(args);
-  object *result = list1;
-  object *list2 = cddr(args);
-  object *head = cons(NULL, NULL);
+  args = cdr(args);
+  object *params = cons(NULL, NULL);
+  push(params,GCStack);
+  object *head = cons(NULL, NULL); 
   push(head,GCStack);
   object *tail = head;
-  if (list2 != NULL) {
-    list2 = car(list2);
-    object *result2 = list2;
-    while (list1 != NULL && list2 != NULL) {
-      if (improperp(list1)) error(MAPCAN, notproper2, result);
-      if (improperp(list2)) error(MAPCAN, notproper3, result2);
-      object *result = apply(MAPCAN, function, cons(car(list1), cons(car(list2),NULL)), env);
-      while ((unsigned int)result >= PAIR) {
-        cdr(tail) = result;
-        tail = result;
-        result = cdr(result);
+  // Make parameters
+  while (true) {
+    object *tailp = params;
+    object *lists = args;
+    while (lists != NULL) {
+      object *list = car(lists);
+      if (list == NULL) {
+         pop(GCStack);
+         pop(GCStack);
+         return cdr(head);
       }
-      if (cdr(list1) != NULL && cdr(list2) != NULL && result != NULL) error2(MAPCAN, PSTR("result is not a proper list"));
-      list1 = cdr(list1); list2 = cdr(list2);
+      if (improperp(list)) error(MAPCAN, notproper, list);
+      object *obj = cons(first(list),NULL);
+      car(lists) = cdr(list);
+      cdr(tailp) = obj; tailp = obj;
+      lists = cdr(lists);
     }
-  } else if (list1 != NULL) {
-    while (list1 != NULL) {
-      if (improperp(list1)) error(MAPCAN, notproper2, result);
-      object *result = apply(MAPCAN, function, cons(car(list1),NULL), env);
-      while ((unsigned int)result >= PAIR) {
-        cdr(tail) = result;
-        tail = result;
-        result = cdr(result);
-      }
-      if (cdr(list1) != NULL && result != NULL) error2(MAPCAN, PSTR("result is not a proper list"));
-      list1 = cdr(list1);
+    object *result = apply(MAPCAN, function, cdr(params), env);
+    while (consp(result)) {
+      cdr(tail) = result; tail = result;
+      result = cdr(result);
     }
+    if (result != NULL) error(MAPCAN, resultproper, result);
   }
-  pop(GCStack);
-  return cdr(head);
 }
 
 // Arithmetic functions
@@ -2879,10 +2879,10 @@ object *fn_princtostring (object *args, object *env) {
   obj->type = STRING;
   GlobalString = NULL;
   GlobalStringIndex = 0;
-  char temp = PrintReadably;
-  PrintReadably = 0;
+  char temp = Flags;
+  clrflag(PRINTREADABLY);
   printobject(arg, pstr);
-  PrintReadably = temp;
+  Flags = temp;
   obj->cdr = GlobalString;
   return obj;
 }
@@ -2941,10 +2941,8 @@ object *fn_ash (object *args, object *env) {
   (void) env;
   int value = checkinteger(ASH, first(args));
   int count = checkinteger(ASH, second(args));
-  if (count >= 0)
-    return number(value << count);
-  else
-    return number(value >> abs(count));
+  if (count >= 0) return number(value << count);
+  else return number(value >> abs(count));
 }
 
 object *fn_logbitp (object *args, object *env) {
@@ -3015,10 +3013,10 @@ object *fn_princ (object *args, object *env) {
   (void) env;
   object *obj = first(args);
   pfun_t pfun = pstreamfun(cdr(args));
-  char temp = PrintReadably;
-  PrintReadably = 0;
+  char temp = Flags;
+  clrflag(PRINTREADABLY);
   printobject(obj, pfun);
-  PrintReadably = temp;
+  Flags = temp;
   return obj;
 }
 
@@ -3054,10 +3052,10 @@ object *fn_writestring (object *args, object *env) {
   (void) env;
   object *obj = first(args);
   pfun_t pfun = pstreamfun(cdr(args));
-  char temp = PrintReadably;
-  PrintReadably = 0;
+  char temp = Flags;
+  clrflag(PRINTREADABLY);
   printstring(obj, pfun);
-  PrintReadably = temp;
+  Flags = temp;
   return nil;
 }
 
@@ -3065,11 +3063,11 @@ object *fn_writeline (object *args, object *env) {
   (void) env;
   object *obj = first(args);
   pfun_t pfun = pstreamfun(cdr(args));
-  char temp = PrintReadably;
-  PrintReadably = 0;
+  char temp = Flags;
+  clrflag(PRINTREADABLY);
   printstring(obj, pfun);
   pln(pfun);
-  PrintReadably = temp;
+  Flags = temp;
   return nil;
 }
 
@@ -3129,7 +3127,7 @@ object *fn_cls (object *args, object *env) {
 object *fn_pinmode (object *args, object *env) {
   (void) env;
   int pin = checkinteger(PINMODE, first(args));
-  int pm = INPUT;
+  PinMode pm = INPUT;
   object *mode = second(args);
   if (integerp(mode)) {
     int nmode = checkinteger(PINMODE, mode);
@@ -3152,8 +3150,8 @@ object *fn_digitalwrite (object *args, object *env) {
   (void) env;
   int pin = checkinteger(DIGITALWRITE, first(args));
   object *mode = second(args);
-  if (integerp(mode)) digitalWrite(pin, mode->integer);
-  else digitalWrite(pin, (mode != nil));
+  if (integerp(mode)) digitalWrite(pin, mode->integer ? HIGH : LOW);
+  else digitalWrite(pin, (mode != nil) ? HIGH : LOW);
   return mode;
 }
 
@@ -3394,23 +3392,23 @@ const char string11[] PROGMEM = "defun";
 const char string12[] PROGMEM = "defvar";
 const char string13[] PROGMEM = "setq";
 const char string14[] PROGMEM = "loop";
-const char string15[] PROGMEM = "push";
-const char string16[] PROGMEM = "pop";
-const char string17[] PROGMEM = "incf";
-const char string18[] PROGMEM = "decf";
-const char string19[] PROGMEM = "setf";
-const char string20[] PROGMEM = "dolist";
-const char string21[] PROGMEM = "dotimes";
-const char string22[] PROGMEM = "trace";
-const char string23[] PROGMEM = "untrace";
-const char string24[] PROGMEM = "for-millis";
-const char string25[] PROGMEM = "with-serial";
-const char string26[] PROGMEM = "with-i2c";
-const char string27[] PROGMEM = "with-spi";
-const char string28[] PROGMEM = "with-sd-card";
-const char string29[] PROGMEM = "tail_forms";
-const char string30[] PROGMEM = "progn";
-const char string31[] PROGMEM = "return";
+const char string15[] PROGMEM = "return";
+const char string16[] PROGMEM = "push";
+const char string17[] PROGMEM = "pop";
+const char string18[] PROGMEM = "incf";
+const char string19[] PROGMEM = "decf";
+const char string20[] PROGMEM = "setf";
+const char string21[] PROGMEM = "dolist";
+const char string22[] PROGMEM = "dotimes";
+const char string23[] PROGMEM = "trace";
+const char string24[] PROGMEM = "untrace";
+const char string25[] PROGMEM = "for-millis";
+const char string26[] PROGMEM = "with-serial";
+const char string27[] PROGMEM = "with-i2c";
+const char string28[] PROGMEM = "with-spi";
+const char string29[] PROGMEM = "with-sd-card";
+const char string30[] PROGMEM = "tail_forms";
+const char string31[] PROGMEM = "progn";
 const char string32[] PROGMEM = "if";
 const char string33[] PROGMEM = "cond";
 const char string34[] PROGMEM = "when";
@@ -3574,23 +3572,23 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string12, sp_defvar, 2, 2 },
   { string13, sp_setq, 2, 2 },
   { string14, sp_loop, 0, 127 },
-  { string15, sp_push, 2, 2 },
-  { string16, sp_pop, 1, 1 },
-  { string17, sp_incf, 1, 2 },
-  { string18, sp_decf, 1, 2 },
-  { string19, sp_setf, 2, 2 },
-  { string20, sp_dolist, 1, 127 },
-  { string21, sp_dotimes, 1, 127 },
-  { string22, sp_trace, 0, 1 },
-  { string23, sp_untrace, 0, 1 },
-  { string24, sp_formillis, 1, 127 },
-  { string25, sp_withserial, 1, 127 },
-  { string26, sp_withi2c, 1, 127 },
-  { string27, sp_withspi, 1, 127 },
-  { string28, sp_withsdcard, 2, 127 },
-  { string29, NULL, NIL, NIL },
-  { string30, tf_progn, 0, 127 },
-  { string31, tf_return, 0, 127 },
+  { string15, sp_return, 0, 127 },
+  { string16, sp_push, 2, 2 },
+  { string17, sp_pop, 1, 1 },
+  { string18, sp_incf, 1, 2 },
+  { string19, sp_decf, 1, 2 },
+  { string20, sp_setf, 2, 2 },
+  { string21, sp_dolist, 1, 127 },
+  { string22, sp_dotimes, 1, 127 },
+  { string23, sp_trace, 0, 1 },
+  { string24, sp_untrace, 0, 1 },
+  { string25, sp_formillis, 1, 127 },
+  { string26, sp_withserial, 1, 127 },
+  { string27, sp_withi2c, 1, 127 },
+  { string28, sp_withspi, 1, 127 },
+  { string29, sp_withsdcard, 2, 127 },
+  { string30, NULL, NIL, NIL },
+  { string31, tf_progn, 0, 127 },
   { string32, tf_if, 2, 3 },
   { string33, tf_cond, 0, 127 },
   { string34, tf_when, 1, 127 },
@@ -3635,9 +3633,9 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string73, fn_apply, 2, 127 },
   { string74, fn_funcall, 1, 127 },
   { string75, fn_append, 0, 127 },
-  { string76, fn_mapc, 2, 3 },
-  { string77, fn_mapcar, 2, 3 },
-  { string78, fn_mapcan, 2, 3 },
+  { string76, fn_mapc, 2, 127 },
+  { string77, fn_mapcar, 2, 127 },
+  { string78, fn_mapcan, 2, 127 },
   { string79, fn_add, 0, 127 },
   { string80, fn_subtract, 1, 127 },
   { string81, fn_multiply, 0, 127 },
@@ -3967,7 +3965,7 @@ const char ControlCodes[] PROGMEM = "Null\0SOH\0STX\0ETX\0EOT\0ENQ\0ACK\0Bell\0B
 "Page\0Return\0SO\0SI\0DLE\0DC1\0DC2\0DC3\0DC4\0NAK\0SYN\0ETB\0CAN\0EM\0SUB\0Escape\0FS\0GS\0RS\0US\0Space\0";
 
 void pcharacter (char c, pfun_t pfun) {
-  if (!PrintReadably) pfun(c);
+  if (!tstflag(PRINTREADABLY)) pfun(c);
   else {
     pfun('#'); pfun('\\');
     if (c > 32) pfun(c);
@@ -3984,18 +3982,18 @@ void pstring (char *s, pfun_t pfun) {
 }
 
 void printstring (object *form, pfun_t pfun) {
-  if (PrintReadably) pfun('"');
+  if (tstflag(PRINTREADABLY)) pfun('"');
   form = cdr(form);
   while (form != NULL) {
     int chars = form->integer;
     for (int i=(sizeof(int)-1)*8; i>=0; i=i-8) {
       char ch = chars>>i & 0xFF;
-      if (PrintReadably && (ch == '"' || ch == '\\')) pfun('\\');
+      if (tstflag(PRINTREADABLY) && (ch == '"' || ch == '\\')) pfun('\\');
       if (ch) pfun(ch);
     }
     form = car(form);
   }
-  if (PrintReadably) pfun('"');
+  if (tstflag(PRINTREADABLY)) pfun('"');
 }
 
 void pfstring (const char *s, pfun_t pfun) {
@@ -4298,7 +4296,7 @@ void setup () {
   initworkspace();
   initenv();
   initsleep();
-  pfstring(PSTR("uLisp 2.8 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 2.9 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
