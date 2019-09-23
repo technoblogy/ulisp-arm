@@ -1,5 +1,5 @@
-/* uLisp ARM 2.9 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 20th September 2019
+/* uLisp ARM 2.9a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 23rd September 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -1787,7 +1787,8 @@ object *tf_progn (object *args, object *env) {
   if (args == NULL) return nil;
   object *more = cdr(args);
   while (more != NULL) {
-    eval(car(args), env);
+    object *result = eval(car(args),env);
+    if (tstflag(RETURNFLAG)) return result;
     args = more;
     more = cdr(args);
   }
