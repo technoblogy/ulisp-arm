@@ -1,5 +1,5 @@
-/* uLisp ARM 2.9a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 23rd September 2019
+/* uLisp ARM 2.9b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 25th September 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -1447,10 +1447,14 @@ object *sp_defvar (object *args, object *env) {
 }
 
 object *sp_setq (object *args, object *env) {
-  checkargs(SETQ, args);
-  object *arg = eval(second(args), env);
-  object *pair = findvalue(first(args), env);
-  cdr(pair) = arg;
+  object *arg = nil;
+  while (args != NULL) {
+    if (cdr(args) == NULL) error2(SETQ, PSTR("odd number of parameters"));
+    object *pair = findvalue(first(args), env);
+    arg = eval(second(args), env);
+    cdr(pair) = arg;
+    args = cddr(args);
+  }
   return arg;
 }
 
@@ -1562,11 +1566,15 @@ object *sp_decf (object *args, object *env) {
 }
 
 object *sp_setf (object *args, object *env) {
-  checkargs(SETF, args); 
-  object **loc = place(SETF, first(args), env);
-  object *result = eval(second(args), env);
-  *loc = result;
-  return result;
+  object *arg = nil;
+  while (args != NULL) {
+    if (cdr(args) == NULL) error2(SETF, PSTR("odd number of parameters"));
+    object **loc = place(SETF, first(args), env);
+    arg = eval(second(args), env);
+    *loc = arg;
+    args = cddr(args);
+  }
+  return arg;
 }
 
 object *sp_dolist (object *args, object *env) {
@@ -3080,7 +3088,7 @@ object *fn_restarti2c (object *args, object *env) {
   I2CCount = 0;
   if (args != NULL) {
     object *rw = first(args);
-    if (integerp(rw)) I2CCount = checkinteger(RESTARTI2C, rw);
+    if (integerp(rw)) I2CCount = rw->integer;
     read = (rw != NULL);
   }
   int address = stream & 0xFF;
@@ -3131,7 +3139,7 @@ object *fn_pinmode (object *args, object *env) {
   PinMode pm = INPUT;
   object *mode = second(args);
   if (integerp(mode)) {
-    int nmode = checkinteger(PINMODE, mode);
+    int nmode = mode->integer;
     if (nmode == 1) pm = OUTPUT; else if (nmode == 2) pm = INPUT_PULLUP;
     #if defined(INPUT_PULLDOWN)
     else if (nmode == 4) pm = INPUT_PULLDOWN;
@@ -3571,14 +3579,14 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string10, sp_quote, 1, 1 },
   { string11, sp_defun, 0, 127 },
   { string12, sp_defvar, 2, 2 },
-  { string13, sp_setq, 2, 2 },
+  { string13, sp_setq, 2, 126 },
   { string14, sp_loop, 0, 127 },
   { string15, sp_return, 0, 127 },
   { string16, sp_push, 2, 2 },
   { string17, sp_pop, 1, 1 },
   { string18, sp_incf, 1, 2 },
   { string19, sp_decf, 1, 2 },
-  { string20, sp_setf, 2, 2 },
+  { string20, sp_setf, 2, 126 },
   { string21, sp_dolist, 1, 127 },
   { string22, sp_dotimes, 1, 127 },
   { string23, sp_trace, 0, 1 },
@@ -4293,7 +4301,8 @@ void initenv () {
 
 void setup () {
   Serial.begin(9600);
-  while (!Serial);
+  int start = millis();
+  while ((millis() - start) < 5000) { if (Serial) break; }
   initworkspace();
   initenv();
   initsleep();
