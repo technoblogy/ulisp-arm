@@ -1,5 +1,5 @@
-/* uLisp ARM 3.0a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 6th December 2019
+/* uLisp ARM 3.0b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 5th January 2020
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -444,14 +444,8 @@ void SDWriteInt (File file, int data) {
 // Arduino pins used for dataflash
 #if defined(ARDUINO_ITSYBITSY_M0)
 const int sck = 38, ssel = 39, mosi = 37, miso = 36;
-#elif defined(ARDUINO_ITSYBITSY_M4)
-const int sck = 32, ssel = 33, mosi = 34, miso = 35;
-#elif defined(ARDUINO_METRO_M4)
-const int sck = 41, ssel = 42, mosi = 43, miso = 44;
-#elif defined(ARDUINO_FEATHER_M4)
-const int sck = 34, ssel = 35, mosi = 36, miso = 37;
-#elif defined(ARDUINO_GRAND_CENTRAL_M4)
-const int sck = 89, ssel = 90, mosi = 91, miso = 92;
+#elif defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_METRO_M4) || defined(ARDUINO_FEATHER_M4) || defined(ARDUINO_GRAND_CENTRAL_M4)
+const int sck = PIN_QSPI_SCK, ssel = PIN_QSPI_CS, mosi = PIN_QSPI_IO0, miso = PIN_QSPI_IO1;
 #endif
 
 boolean FlashSetup () {
@@ -466,7 +460,7 @@ boolean FlashSetup () {
   for(uint8_t i=0; i<4; i++) manID = FlashRead();
   devID = FlashRead();
   digitalWrite(ssel, HIGH);
-  return (devID == 0x14 || devID == 0x16); // Found correct device
+  return (devID == 0x14 || devID == 0x15 || devID == 0x16); // Found correct device
 }
 
 inline void FlashWrite (uint8_t data) {
@@ -503,10 +497,9 @@ inline void FlashEndRead(void) {
 }
 
 void FlashBeginWrite (int blocks) {
-  FlashBusy();
   // Erase 64K
-  FlashWriteEnable();
   for (int b=0; b<blocks; b++) {
+    FlashWriteEnable();
     digitalWrite(ssel, 0);
     FlashWrite(BLOCK64K);
     FlashWrite(0); FlashWrite(b); FlashWrite(0);
@@ -519,7 +512,7 @@ inline uint8_t FlashReadByte () {
   return FlashRead();
 }
 
-void FlashWriteByte (unsigned long *addr, uint8_t data) {
+void FlashWriteByte (uint32_t *addr, uint8_t data) {
   // New page
   if (((*addr) & 0xFF) == 0) {
     digitalWrite(ssel, 1);
@@ -537,9 +530,10 @@ void FlashWriteByte (unsigned long *addr, uint8_t data) {
 
 inline void FlashEndWrite (void) {
   digitalWrite(ssel, 1);
+  FlashBusy();
 }
 
-void FlashWriteInt (unsigned long *addr, int data) {
+void FlashWriteInt (uint32_t *addr, int data) {
   FlashWriteByte(addr, data & 0xFF); FlashWriteByte(addr, data>>8 & 0xFF);
   FlashWriteByte(addr, data>>16 & 0xFF); FlashWriteByte(addr, data>>24 & 0xFF);
 }
@@ -577,7 +571,7 @@ int saveimage (object *arg) {
   // Save to DataFlash
   int bytesneeded = imagesize*8 + SYMBOLTABLESIZE + 20;
   if (bytesneeded > DATAFLASHSIZE) error(SAVEIMAGE, PSTR("image size too large"), number(imagesize));
-  unsigned long addr = 0;
+  uint32_t addr = 0;
   FlashBeginWrite((bytesneeded+65535)/65536);
   FlashWriteInt(&addr, (uintptr_t)arg);
   FlashWriteInt(&addr, imagesize);
@@ -644,7 +638,7 @@ int loadimage (object *arg) {
   FlashBeginRead();
   FlashReadInt(); // Skip eval address
   int imagesize = FlashReadInt();
-  if (imagesize == 0 || imagesize == 0xFFFF) error2(LOADIMAGE, PSTR("no saved image"));
+  if (imagesize == 0 || imagesize == 0xFFFFFFFF) error2(LOADIMAGE, PSTR("no saved image"));
   GlobalEnv = (object *)FlashReadInt();
   GCStack = (object *)FlashReadInt();
   #if SYMBOLTABLESIZE > BUFFERSIZE
