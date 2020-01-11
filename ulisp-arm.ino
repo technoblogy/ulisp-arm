@@ -1,5 +1,5 @@
-/* uLisp ARM 3.0b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 5th January 2020
+/* uLisp ARM 3.0c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 11th January 2020
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -2754,6 +2754,7 @@ object *fn_sort (object *args, object *env) {
   push(list,GCStack);
   object *predicate = second(args);
   object *compare = cons(NULL, cons(NULL, NULL));
+  push(compare,GCStack);
   object *ptr = cdr(list);
   while (cdr(ptr) != NULL) {
     object *go = list;
@@ -2770,7 +2771,7 @@ object *fn_sort (object *args, object *env) {
       cdr(go) = obj;
     } else ptr = cdr(ptr);
   }
-  pop(GCStack);
+  pop(GCStack); pop(GCStack);
   return cdr(list);
 }
 
