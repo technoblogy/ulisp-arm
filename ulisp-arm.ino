@@ -174,6 +174,7 @@ typedef int PinMode;
   #define WORKSPACESIZE 1280              /* Objects (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define CODESIZE 64                     /* Bytes */
+  #define STACKDIFF 320
 
 #elif defined(ARDUINO_NRF52840_ITSYBITSY)
   #define WORKSPACESIZE 20992-SDSIZE      /* Objects (8*bytes) */
