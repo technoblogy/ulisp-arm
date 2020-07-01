@@ -8,5 +8,6 @@ A version of the Lisp programming language for boards based on the ARM processor
 * Adafruit CLUE and ItsyBitsy nRF52840.
 * BBC Micro Bit.
 * Maxim MAX32620FTHR.
+* Teensy 4.0/4.1.
 
 For more information see: http://www.ulisp.com/
