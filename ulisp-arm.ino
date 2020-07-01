@@ -1,5 +1,5 @@
-/* uLisp ARM 3.3 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 1st June 2020
+/* uLisp ARM 3.3a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 1st July 2020
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -145,6 +145,7 @@ typedef struct sobject {
 } object;
 
 typedef object *(*fn_ptr_type)(object *, object *);
+typedef void (*mapfun_t)(object *, object **);
 typedef int (*intfn_ptr_type)(int w, int x, int y, int z);
 
 typedef struct {
@@ -158,10 +159,10 @@ typedef void (*pfun_t)(char);
 typedef int PinMode;
 
 // Workspace
-#define PERSIST __attribute__((section(".text")))
 #define WORDALIGNED __attribute__((aligned (4)))
 #define BUFFERSIZE 34  // Number of bits+2
 #define RAMFUNC __attribute__ ((section (".ramfunctions")))
+#define MEMBANK
 
 #if defined(ARDUINO_ITSYBITSY_M0) || defined(ARDUINO_SAMD_FEATHER_M0_EXPRESS)
   #define WORKSPACESIZE 2816-SDSIZE       /* Objects (8*bytes) */
@@ -184,6 +185,7 @@ typedef int PinMode;
   #define DATAFLASHSIZE 2048000           /* 2 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define CODESIZE 256                    /* Bytes */
+  #define SDCARD_SS_PIN 10
   #define STACKDIFF 400
   #define CPU_ATSAMD51
 
@@ -218,7 +220,7 @@ typedef int PinMode;
   #define CPU_NRF51822
 
 #elif defined(ARDUINO_CALLIOPE_MINI)
-  #define WORKSPACESIZE 1280              /* Objects (8*bytes) */
+  #define WORKSPACESIZE 3328              /* Objects (8*bytes) */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define CODESIZE 64                     /* Bytes */
   #define STACKDIFF 320
@@ -245,6 +247,7 @@ typedef int PinMode;
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 0
+  #define CPU_NRF52840
 
 #elif defined(MAX32620)
   #define WORKSPACESIZE 24576-SDSIZE      /* Objects (8*bytes) */
@@ -258,11 +261,27 @@ typedef int PinMode;
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 320
 
+#elif defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
+  #define WORKSPACESIZE 60000             /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 15000
+  #define SDCARD_SS_PIN BUILTIN_SDCARD
+  #define BitOrder uint8_t
+  #undef RAMFUNC
+  #define RAMFUNC FASTRUN
+  #undef MEMBANK
+  #define MEMBANK DMAMEM
+
+#else
+#error "Board not supported!"
 #endif
 
-object Workspace[WORKSPACESIZE] WORDALIGNED;
+object Workspace[WORKSPACESIZE] WORDALIGNED MEMBANK;
 char SymbolTable[SYMBOLTABLESIZE];
+#if defined(CODESIZE)
 RAMFUNC uint8_t MyCode[CODESIZE] WORDALIGNED;
+#endif
 
 // Global variables
 
@@ -327,6 +346,7 @@ void error2 (symbol_t fname, PGM_P string) {
 
 // Save space as these are used multiple times
 const char notanumber[] PROGMEM = "argument is not a number";
+const char notaninteger[] PROGMEM = "argument is not an integer";
 const char notastring[] PROGMEM = "argument is not a string";
 const char notalist[] PROGMEM = "argument is not a list";
 const char notasymbol[] PROGMEM = "argument is not a symbol";
@@ -565,7 +585,7 @@ void SDWriteInt (File file, int data) {
 #define READID        0x90
 
 // Arduino pins used for dataflash
-#if defined(ARDUINO_ITSYBITSY_M0)
+#if defined(ARDUINO_ITSYBITSY_M0) || defined(ARDUINO_SAMD_FEATHER_M0_EXPRESS)
 const int sck = 38, ssel = 39, mosi = 37, miso = 36;
 #elif defined(EXTERNAL_FLASH_USE_QSPI)
 const int sck = PIN_QSPI_SCK, ssel = PIN_QSPI_CS, mosi = PIN_QSPI_IO0, miso = PIN_QSPI_IO1;
@@ -663,15 +683,15 @@ void FlashWriteInt (uint32_t *addr, int data) {
 #endif
 
 int saveimage (object *arg) {
-  unsigned int imagesize = compactimage(&arg);
 #if defined(sdcardsupport)
+  unsigned int imagesize = compactimage(&arg);
   SD.begin(SDCARD_SS_PIN);
   File file;
   if (stringp(arg)) {
     file = SD.open(MakeFilename(arg), O_RDWR | O_CREAT | O_TRUNC);
     arg = NULL;
   } else if (arg == NULL || listp(arg)) file = SD.open("ULISP.IMG", O_RDWR | O_CREAT | O_TRUNC);
-  else error(SAVEIMAGE, PSTR("illegal argument"), arg);
+  else error(SAVEIMAGE, invalidarg, arg);
   if (!file) error2(SAVEIMAGE, PSTR("problem saving to SD card"));
   SDWriteInt(file, (uintptr_t)arg);
   SDWriteInt(file, imagesize);
@@ -690,7 +710,8 @@ int saveimage (object *arg) {
   file.close();
   return imagesize;
 #elif defined(DATAFLASHSIZE)
-  if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, PSTR("illegal argument"), arg);
+  unsigned int imagesize = compactimage(&arg);
+  if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, invalidarg, arg);
   if (!FlashSetup()) error2(SAVEIMAGE, PSTR("no DataFlash found."));
   // Save to DataFlash
   int bytesneeded = 20 + SYMBOLTABLESIZE + CODESIZE + imagesize*8;
@@ -803,7 +824,7 @@ void autorunimage () {
   FlashBeginRead();
   object *autorun = (object *)FlashReadInt();
   FlashEndRead();
-  if (autorun != NULL && (unsigned int)autorun != 0xFFFF) {
+  if (autorun != NULL && (unsigned int)autorun != 0xFFFFFFFF) {
     loadimage(nil);
     apply(0, autorun, NULL, NULL);
   }
@@ -923,12 +944,12 @@ int digitvalue (char d) {
 }
 
 int checkinteger (symbol_t name, object *obj) {
-  if (!integerp(obj)) error(name, notanumber, obj);
+  if (!integerp(obj)) error(name, notaninteger, obj);
   return obj->integer;
 }
 
 int checkbitvalue (symbol_t name, object *obj) {
-  if (!integerp(obj)) error(name, notanumber, obj);
+  if (!integerp(obj)) error(name, notaninteger, obj);
   int n = obj->integer;
   if (n & ~1) error(name, PSTR("argument is not a bit value"), obj);
   return n;
@@ -936,8 +957,8 @@ int checkbitvalue (symbol_t name, object *obj) {
 
 float checkintfloat (symbol_t name, object *obj){
   if (integerp(obj)) return obj->integer;
-  if (floatp(obj)) return obj->single_float;
-  error(name, notanumber, obj);
+  if (!floatp(obj)) error(name, notanumber, obj);
+  return obj->single_float;
 }
 
 int checkchar (symbol_t name, object *obj) {
@@ -1084,8 +1105,8 @@ void rslice (object *array, int size, int slice, object *dims, object *args) {
   int d = first(dims)->integer;
   for (int i = 0; i < d; i++) {
     int index = slice * d + i;
+    if (!consp(args)) error2(0, PSTR("initial contents don't match array type"));
     if (cdr(dims) == NULL) {
-      if (args == NULL) error2(0, PSTR("initial contents don't match array type"));
       object **p = arrayref(array, index, size);
       *p = car(args);
     } else rslice(array, size, index, cdr(dims), car(args));
@@ -1098,6 +1119,7 @@ object *readarray (int d, object *args) {
   object *dims = NULL; object *head = NULL;
   int size = 1;
   for (int i = 0; i < d; i++) {
+    if (!listp(list)) error2(0, PSTR("initial contents don't match array type"));
     int l = listlength(0, list);
     if (dims == NULL) { dims = cons(number(l), NULL); head = dims; }
     else { cdr(dims) = cons(number(l), NULL); dims = cdr(dims); }
@@ -1463,10 +1485,10 @@ void I2Cstop (uint8_t read) {
 // Streams
 
 inline int spiread () { return SPI.transfer(0); }
-#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
+#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline int spi1read () { return SPI1.transfer(0); }
 #endif
-#if defined(ARDUINO_SAM_DUE)
+#if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 inline int serial2read () { while (!Serial2.available()) testescape(); return Serial2.read(); }
 inline int serial3read () { while (!Serial3.available()) testescape(); return Serial3.read(); }
@@ -1488,7 +1510,7 @@ inline int SDread () {
 void serialbegin (int address, int baud) {
   #if defined(CPU_NRF51822) || defined(ARDUINO_FEATHER_F405)
   error(WITHSERIAL, PSTR("port not supported"), number(address));
-  #elif defined(ARDUINO_SAM_DUE)
+  #elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
   if (address == 1) Serial1.begin((long)baud*100);
   else if (address == 2) Serial2.begin((long)baud*100);
   else if (address == 3) Serial3.begin((long)baud*100);
@@ -1542,10 +1564,10 @@ gfun_t gstreamfun (object *args) {
 }
 
 inline void spiwrite (char c) { SPI.transfer(c); }
-#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
+#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline void spi1write (char c) { SPI1.transfer(c); }
 #endif
-#if defined(ARDUINO_SAM_DUE)
+#if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline void serial1write (char c) { Serial1.write(c); }
 inline void serial2write (char c) { Serial2.write(c); }
 inline void serial3write (char c) { Serial3.write(c); }
@@ -1570,13 +1592,13 @@ pfun_t pstreamfun (object *args) {
   if (streamtype == I2CSTREAM) pfun = (pfun_t)I2Cwrite;
   else if (streamtype == SPISTREAM) {
     if (address < 128) pfun = spiwrite;
-    #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
+    #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)|| defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
     else pfun = spi1write;
     #endif
   }
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
-    #if defined(ARDUINO_SAM_DUE)
+    #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
     else if (address == 1) pfun = serial1write;
     else if (address == 2) pfun = serial2write;
     else if (address == 3) pfun = serial3write;
@@ -1630,6 +1652,10 @@ void checkanalogread (int pin) {
   if (!((pin>=0 && pin<=4) || pin==10 || pin==12 || pin==16)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(MAX32620)
   if (!(pin>=49 && pin<=52)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_TEENSY40)
+  if (!((pin>=14 && pin<=27))) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_TEENSY41)
+  if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(ANALOGREAD, invalidpin, number(pin));
 #endif
 }
 
@@ -1664,6 +1690,10 @@ void checkanalogwrite (int pin) {
   if (!(pin>=0 && pin<=46)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(MAX32620)
   if (!((pin>=20 && pin<=29) || pin==32 || (pin>=40 && pin<=48))) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_TEENSY40)
+  if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || (pin>=33 && pin<=39))) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_TEENSY41)
+  if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || pin==33 || (pin>=36 && pin<=37))) error(ANALOGWRITE, invalidpin, number(pin));
 #endif
 }
 
@@ -1832,6 +1862,7 @@ void supersub (object *form, int lm, int super, pfun_t pfun) {
 // Assembler
 
 object *call (int entry, int nargs, object *args, object *env) {
+#if defined(CODESIZE)
   (void) env;
   int param[4];
   for (int i=0; i<nargs; i++) {
@@ -1842,9 +1873,13 @@ object *call (int entry, int nargs, object *args, object *env) {
   }
   int w = ((intfn_ptr_type)&MyCode[entry])(param[0], param[1], param[2], param[3]);
   return number(w);
+#else
+  return nil;
+#endif
 }
 
 void putcode (object *arg, int origin, int pc) {
+#if defined(CODESIZE)
   int code = checkinteger(DEFCODE, arg);
   MyCode[origin+pc] = code & 0xff;
   MyCode[origin+pc+1] = (code>>8) & 0xff;
@@ -1852,6 +1887,7 @@ void putcode (object *arg, int origin, int pc) {
   printhex4(pc, pserial);
   printhex4(code, pserial);
   #endif
+#endif
 }
 
 int assemble (int pass, int origin, object *entries, object *env, object *pcpair) {
@@ -2153,8 +2189,10 @@ object *sp_dotimes (object *args, object *env) {
 object *sp_trace (object *args, object *env) {
   (void) env;
   while (args != NULL) {
-      trace(first(args)->name);
-      args = cdr(args);
+    object *var = first(args);
+    if (!symbolp(var)) error(TRACE, notasymbol, var);
+    trace(var->name);
+    args = cdr(args);
   }
   int i = 0;
   while (i < TRACEMAX) {
@@ -2175,7 +2213,9 @@ object *sp_untrace (object *args, object *env) {
     }
   } else {
     while (args != NULL) {
-      untrace(first(args)->name);
+      object *var = first(args);
+      if (!symbolp(var)) error(UNTRACE, notasymbol, var);
+      untrace(var->name);
       args = cdr(args);
     }
   }
@@ -2280,7 +2320,7 @@ object *sp_withspi (object *args, object *env) {
   object *pair = cons(var, stream(SPISTREAM, pin + 128*address));
   push(pair,env);
   SPIClass *spiClass = &SPI;
-  #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
+  #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
   if (address == 1) spiClass = &SPI1;
   #endif
   (*spiClass).begin();
@@ -2344,6 +2384,7 @@ object *sp_withgfx (object *args, object *env) {
 // Assembler
 
 object *sp_defcode (object *args, object *env) {
+#if defined(CODESIZE)
   setflag(NOESC);
   checkargs(DEFCODE, args);
   object *var = first(args);
@@ -2439,6 +2480,10 @@ object *sp_defcode (object *args, object *env) {
   else push(cons(var, val), GlobalEnv);
   clrflag(NOESC);
   return var;
+#else
+  error2(DEFCODE, PSTR("not available"));
+  return nil;
+#endif
 }
 
 // Tail-recursive forms
@@ -2671,8 +2716,8 @@ object *fn_length (object *args, object *env) {
   object *arg = first(args);
   if (listp(arg)) return number(listlength(LENGTH, arg));
   if (stringp(arg)) return number(stringlength(arg));
-  if (arrayp(arg) && cdr(cddr(arg)) == NULL) return number(-(first(cddr(arg))->integer));
-  error(LENGTH, PSTR("argument is not a list, 1d array, or string"), arg);
+  if (!(arrayp(arg) && cdr(cddr(arg)) == NULL)) error(LENGTH, PSTR("argument is not a list, 1d array, or string"), arg);
+  return number(-(first(cddr(arg))->integer));
 }
 
 object *fn_arraydimensions (object *args, object *env) {
@@ -2702,7 +2747,10 @@ object *fn_makearray (object *args, object *env) {
     else error(MAKEARRAY, PSTR("argument not recognised"), var); 
     args = cddr(args);
   }
-  if (bitp) { if (def == nil) def = 0; else def = number(-checkbitvalue(MAKEARRAY, def)); } // 1 becomes all ones
+  if (bitp) {
+    if (def == nil) def = number(0);
+    else def = number(-checkbitvalue(MAKEARRAY, def)); // 1 becomes all ones
+  }
   return makearray(MAKEARRAY, dims, def, bitp);
 }
 
@@ -2822,7 +2870,20 @@ object *fn_mapc (object *args, object *env) {
   }
 }
 
-object *fn_mapcar (object *args, object *env) {
+void mapcarfun (object *result, object **tail) {
+  object *obj = cons(result,NULL);
+  cdr(*tail) = obj; *tail = obj;
+}
+
+void mapcanfun (object *result, object **tail) {
+  while (consp(result)) {
+    cdr(*tail) = result; *tail = result;
+    result = cdr(result);
+  }
+  if (result != NULL) error(MAPCAN, resultproper, result);
+}
+
+object *mapcarcan (symbol_t name, object *args, object *env, mapfun_t fun) {
   object *function = first(args);
   args = cdr(args);
   object *params = cons(NULL, NULL);
@@ -2841,50 +2902,23 @@ object *fn_mapcar (object *args, object *env) {
          pop(GCStack);
          return cdr(head);
       }
-      if (improperp(list)) error(MAPCAR, notproper, list);
+      if (improperp(list)) error(name, notproper, list);
       object *obj = cons(first(list),NULL);
       car(lists) = cdr(list);
       cdr(tailp) = obj; tailp = obj;
       lists = cdr(lists);
     }
-    object *result = apply(MAPCAR, function, cdr(params), env);
-    object *obj = cons(result,NULL);
-    cdr(tail) = obj; tail = obj;
+    object *result = apply(name, function, cdr(params), env);
+    fun(result, &tail);
   }
 }
 
+object *fn_mapcar (object *args, object *env) {
+  return mapcarcan(MAPCAR, args, env, mapcarfun);
+}
+
 object *fn_mapcan (object *args, object *env) {
-  object *function = first(args);
-  args = cdr(args);
-  object *params = cons(NULL, NULL);
-  push(params,GCStack);
-  object *head = cons(NULL, NULL); 
-  push(head,GCStack);
-  object *tail = head;
-  // Make parameters
-  while (true) {
-    object *tailp = params;
-    object *lists = args;
-    while (lists != NULL) {
-      object *list = car(lists);
-      if (list == NULL) {
-         pop(GCStack);
-         pop(GCStack);
-         return cdr(head);
-      }
-      if (improperp(list)) error(MAPCAN, notproper, list);
-      object *obj = cons(first(list),NULL);
-      car(lists) = cdr(list);
-      cdr(tailp) = obj; tailp = obj;
-      lists = cdr(lists);
-    }
-    object *result = apply(MAPCAN, function, cdr(params), env);
-    while (consp(result)) {
-      cdr(tail) = result; tail = result;
-      result = cdr(result);
-    }
-    if (result != NULL) error(MAPCAN, resultproper, result);
-  }
+  return mapcarcan(MAPCAN, args, env, mapcanfun);
 }
 
 // Arithmetic functions
@@ -2931,6 +2965,7 @@ object *negate (object *arg) {
     else return number(-result);
   } else if (floatp(arg)) return makefloat(-(arg->single_float));
   else error(SUBTRACT, notanumber, arg);
+  return nil;
 }
 
 object *fn_subtract (object *args, object *env) {
@@ -2954,6 +2989,7 @@ object *fn_subtract (object *args, object *env) {
     }
     return number(result);
   } else error(SUBTRACT, notanumber, arg);
+  return nil;
 }
 
 object *multiply_floats (object *args, float fresult) {
@@ -3028,6 +3064,7 @@ object *fn_divide (object *args, object *env) {
     }
     return number(result); 
   } else error(DIVIDE, notanumber, arg);
+  return nil;
 }
 
 object *fn_mod (object *args, object *env) {
@@ -3060,6 +3097,7 @@ object *fn_oneplus (object *args, object *env) {
     if (result == INT_MAX) return makefloat((arg->integer) + 1.0);
     else return number(result + 1);
   } else error(ONEPLUS, notanumber, arg);
+  return nil;
 }
 
 object *fn_oneminus (object *args, object *env) {
@@ -3071,6 +3109,7 @@ object *fn_oneminus (object *args, object *env) {
     if (result == INT_MIN) return makefloat((arg->integer) - 1.0);
     else return number(result - 1);
   } else error(ONEMINUS, notanumber, arg);
+  return nil;
 }
 
 object *fn_abs (object *args, object *env) {
@@ -3082,14 +3121,16 @@ object *fn_abs (object *args, object *env) {
     if (result == INT_MIN) return makefloat(abs((float)result));
     else return number(abs(result));
   } else error(ABS, notanumber, arg);
+  return nil;
 }
 
 object *fn_random (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   if (integerp(arg)) return number(random(arg->integer));
-  else if (floatp(arg)) return makefloat((float)rand()/(float)(RAND_MAX/(arg->single_float)));
+  else if (!floatp(arg)) return makefloat((float)rand()/(float)(RAND_MAX/(arg->single_float)));
   else error(RANDOM, notanumber, arg);
+  return nil;
 }
 
 object *fn_maxfn (object *args, object *env) {
@@ -3221,6 +3262,7 @@ object *fn_plusp (object *args, object *env) {
   if (floatp(arg)) return ((arg->single_float) > 0.0) ? tee : nil;
   else if (integerp(arg)) return ((arg->integer) > 0) ? tee : nil;
   else error(PLUSP, notanumber, arg);
+  return nil;
 }
 
 object *fn_minusp (object *args, object *env) {
@@ -3229,6 +3271,7 @@ object *fn_minusp (object *args, object *env) {
   if (floatp(arg)) return ((arg->single_float) < 0.0) ? tee : nil;
   else if (integerp(arg)) return ((arg->integer) < 0) ? tee : nil;
   else error(MINUSP, notanumber, arg);
+  return nil;
 }
 
 object *fn_zerop (object *args, object *env) {
@@ -3237,6 +3280,7 @@ object *fn_zerop (object *args, object *env) {
   if (floatp(arg)) return ((arg->single_float) == 0.0) ? tee : nil;
   else if (integerp(arg)) return ((arg->integer) == 0) ? tee : nil;
   else error(ZEROP, notanumber, arg);
+  return nil; 
 }
 
 object *fn_oddp (object *args, object *env) {
@@ -4101,8 +4145,8 @@ object *fn_drawpixel (object *args, object *env) {
   uint16_t colour = COLOR_WHITE;
   if (cddr(args) != NULL) colour = checkinteger(DRAWPIXEL, third(args));
   tft.drawPixel(checkinteger(DRAWPIXEL, first(args)), checkinteger(DRAWPIXEL, second(args)), colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawline (object *args, object *env) {
@@ -4112,8 +4156,8 @@ object *fn_drawline (object *args, object *env) {
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWLINE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWLINE, car(args));
   tft.drawLine(params[0], params[1], params[2], params[3], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawrect (object *args, object *env) {
@@ -4123,8 +4167,8 @@ object *fn_drawrect (object *args, object *env) {
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWRECT, car(args));
   tft.drawRect(params[0], params[1], params[2], params[3], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillrect (object *args, object *env) {
@@ -4134,8 +4178,8 @@ object *fn_fillrect (object *args, object *env) {
   for (int i=0; i<4; i++) { params[i] = checkinteger(FILLRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLRECT, car(args));
   tft.fillRect(params[0], params[1], params[2], params[3], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawcircle (object *args, object *env) {
@@ -4145,8 +4189,8 @@ object *fn_drawcircle (object *args, object *env) {
   for (int i=0; i<3; i++) { params[i] = checkinteger(DRAWCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWCIRCLE, car(args));
   tft.drawCircle(params[0], params[1], params[2], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillcircle (object *args, object *env) {
@@ -4156,8 +4200,8 @@ object *fn_fillcircle (object *args, object *env) {
   for (int i=0; i<3; i++) { params[i] = checkinteger(FILLCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLCIRCLE, car(args));
   tft.fillCircle(params[0], params[1], params[2], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawroundrect (object *args, object *env) {
@@ -4167,8 +4211,8 @@ object *fn_drawroundrect (object *args, object *env) {
   for (int i=0; i<5; i++) { params[i] = checkinteger(DRAWROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWROUNDRECT, car(args));
   tft.drawRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillroundrect (object *args, object *env) {
@@ -4178,8 +4222,8 @@ object *fn_fillroundrect (object *args, object *env) {
   for (int i=0; i<5; i++) { params[i] = checkinteger(FILLROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLROUNDRECT, car(args));
   tft.fillRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawtriangle (object *args, object *env) {
@@ -4189,8 +4233,8 @@ object *fn_drawtriangle (object *args, object *env) {
   for (int i=0; i<6; i++) { params[i] = checkinteger(DRAWTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWTRIANGLE, car(args));
   tft.drawTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_filltriangle (object *args, object *env) {
@@ -4200,8 +4244,8 @@ object *fn_filltriangle (object *args, object *env) {
   for (int i=0; i<6; i++) { params[i] = checkinteger(FILLTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLTRIANGLE, car(args));
   tft.fillTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawchar (object *args, object *env) {
@@ -4220,16 +4264,16 @@ object *fn_drawchar (object *args, object *env) {
   }
   tft.drawChar(checkinteger(DRAWCHAR, first(args)), checkinteger(DRAWCHAR, second(args)), checkchar(DRAWCHAR, third(args)),
     colour, bg, size);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_setcursor (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.setCursor(checkinteger(SETCURSOR, first(args)), checkinteger(SETCURSOR, second(args)));
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_settextcolor (object *args, object *env) {
@@ -4237,24 +4281,24 @@ object *fn_settextcolor (object *args, object *env) {
   (void) env;
   if (cdr(args) != NULL) tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)), checkinteger(SETTEXTCOLOR, second(args)));
   else tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)));
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_settextsize (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.setTextSize(checkinteger(SETTEXTSIZE, first(args)));
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_settextwrap (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.setTextWrap(first(args) != NULL);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillscreen (object *args, object *env) {
@@ -4263,24 +4307,24 @@ object *fn_fillscreen (object *args, object *env) {
   uint16_t colour = COLOR_BLACK;
   if (args != NULL) colour = checkinteger(FILLSCREEN, first(args));
   tft.fillScreen(colour);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_setrotation (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.setRotation(checkinteger(SETROTATION, first(args)));
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_invertdisplay (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.invertDisplay(first(args) != NULL);
-  return nil;
 #endif
+  return nil;
 }
 
 // Insert your own function definitions here
@@ -4772,19 +4816,24 @@ void testescape () {
 }
 
 // Main evaluator
+#if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
+#define ENDSTACK _ebss
+#else
+#define ENDSTACK end
+#endif
 
-extern uint32_t end;  // Bottom of stack
+extern uint32_t ENDSTACK;  // Bottom of stack
 
 object *eval (object *form, object *env) {
   register int *sp asm ("r13");
   int TC=0;
   EVAL:
   // Enough space?
-  // Serial.println((uint32_t)sp - (uint32_t)&end);
-  if (((uint32_t)sp - (uint32_t)&end) < STACKDIFF) error2(0, PSTR("Stack overflow"));
+  // Serial.println((uint32_t)sp - (uint32_t)&ENDSTACK); // Find best STACKDIFF value
+  if (((uint32_t)sp - (uint32_t)&ENDSTACK) < STACKDIFF) error2(0, PSTR("stack overflow"));
   if (Freespace <= WORKSPACESIZE>>4) gc(form, env);
   // Escape
-  if (tstflag(ESCAPE)) { clrflag(ESCAPE); error2(0, PSTR("Escape!"));}
+  if (tstflag(ESCAPE)) { clrflag(ESCAPE); error2(0, PSTR("escape!"));}
   if (!tstflag(NOESC)) testescape();
 
   if (form == NULL) return nil;
@@ -4858,7 +4907,7 @@ object *eval (object *form, object *env) {
       goto EVAL;
     }
 
-    if (name < SPECIAL_FORMS) error2((uintptr_t)function, PSTR("can't be used as a function"));
+    if (name < SPECIAL_FORMS) error2(name, PSTR("can't be used as a function"));
   }
         
   // Evaluate the parameters - result in head
@@ -5118,7 +5167,7 @@ void printobject (object *form, pfun_t pfun) {
   else if (arrayp(form)) printarray(form, pfun);
   else if (form->type == CODE) pfstring(PSTR("code"), pfun);
   else if (streamp(form)) pstream(form, pfun);
-  else error2(0, PSTR("Error in print"));
+  else error2(0, PSTR("error in print"));
 }
 
 void prin1object (object *form, pfun_t pfun) {
