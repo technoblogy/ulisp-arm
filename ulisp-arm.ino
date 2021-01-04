@@ -1,5 +1,5 @@
-/* uLisp ARM 3.3a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 1st July 2020
+/* uLisp ARM Version 3.4 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 4th January 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -48,6 +48,129 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 #define SDSIZE 172
 #else
 #define SDSIZE 0
+#endif
+
+// Platform specific settings
+
+#define WORDALIGNED __attribute__((aligned (4)))
+#define BUFFERSIZE 34  // Number of bits+2
+#define RAMFUNC __attribute__ ((section (".ramfunctions")))
+#define MEMBANK
+
+#if defined(ARDUINO_ITSYBITSY_M0) || defined(ARDUINO_SAMD_FEATHER_M0_EXPRESS)
+  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 128                    /* Bytes */
+  #define SDCARD_SS_PIN 4
+  #define STACKDIFF 320
+  #define CPU_ATSAMD21
+
+#elif defined(ARDUINO_GEMMA_M0)
+  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 128                    /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_ATSAMD21
+
+#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
+  #define WORKSPACESIZE (20480-SDSIZE)    /* Objects (8*bytes) */
+  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define SDCARD_SS_PIN 10
+  #define STACKDIFF 400
+  #define CPU_ATSAMD51
+
+#elif defined(ARDUINO_GRAND_CENTRAL_M4)
+  #define WORKSPACESIZE (28672-SDSIZE)    /* Objects (8*bytes) */
+  #define DATAFLASHSIZE 8192000           /* 8 MBytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 400
+  #define CPU_ATSAMD51P20
+
+#elif defined(ARDUINO_SAMD_MKRZERO)
+  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 128                    /* Bytes */
+  #define STACKDIFF 840
+  #define CPU_ATSAMD21
+
+#elif defined(ARDUINO_SAMD_ZERO)          /* Put this last, otherwise overrides the Adafruit boards */
+  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 128                    /* Bytes */
+  #define SDCARD_SS_PIN 10
+  #define STACKDIFF 320
+  #define CPU_ATSAMD21
+
+#elif defined(ARDUINO_BBC_MICROBIT)
+  #define WORKSPACESIZE 1280              /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 64                     /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_NRF51822
+
+#elif defined(ARDUINO_BBC_MICROBIT_V2)
+  #define WORKSPACESIZE 12800              /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 1024             /* Bytes */
+  #define CODESIZE 128                     /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_NRF52833
+
+#elif defined(ARDUINO_CALLIOPE_MINI)
+  #define WORKSPACESIZE 3328              /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 64                     /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_NRF51822
+
+#elif defined(ARDUINO_SINOBIT)
+  #define WORKSPACESIZE 1280              /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 64                     /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_NRF51822
+
+#elif defined(ARDUINO_NRF52840_ITSYBITSY) || defined(ARDUINO_NRF52840_CLUE)
+  #define WORKSPACESIZE (20992-SDSIZE)    /* Objects (8*bytes) */
+  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 1200
+  #define CPU_NRF52840
+
+#elif defined(MAX32620)
+  #define WORKSPACESIZE (24576-SDSIZE)    /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_MAX32620
+  #define Wire1 Wire2
+
+#elif defined(ARDUINO_FEATHER_F405)
+  #define WORKSPACESIZE (11840-SDSIZE)    /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_F405
+
+#elif defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
+  #define WORKSPACESIZE 60000             /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 15000
+  #define CPU_IMXRT1062
+  #define SDCARD_SS_PIN BUILTIN_SDCARD
+  #define BitOrder uint8_t
+  #undef RAMFUNC
+  #define RAMFUNC FASTRUN
+  #undef MEMBANK
+  #define MEMBANK DMAMEM
+
+#else
+#error "Board not supported!"
 #endif
 
 // C Macros
@@ -103,25 +226,6 @@ const char stringstream[] PROGMEM = "string";
 const char gfxstream[] PROGMEM = "gfx";
 const char *const streamname[] PROGMEM = {serialstream, i2cstream, spistream, sdstream, stringstream, gfxstream};
 
-enum function { NIL, TEE, NOTHING, OPTIONAL, INITIALELEMENT, ELEMENTTYPE, BIT, AMPREST, LAMBDA, LET,
-LETSTAR, CLOSURE, SPECIAL_FORMS, QUOTE, DEFUN, DEFVAR, SETQ, LOOP, RETURN, PUSH, POP, INCF, DECF, SETF,
-DOLIST, DOTIMES, TRACE, UNTRACE, FORMILLIS, WITHOUTPUTTOSTRING, WITHSERIAL, WITHI2C, WITHSPI, WITHSDCARD,
-WITHGFX, DEFCODE, TAIL_FORMS, PROGN, IF, COND, WHEN, UNLESS, CASE, AND, OR, FUNCTIONS, NOT, NULLFN, CONS,
-ATOM, LISTP, CONSP, SYMBOLP, ARRAYP, BOUNDP, SETFN, STREAMP, EQ, CAR, FIRST, CDR, REST, CAAR, CADR,
-SECOND, CDAR, CDDR, CAAAR, CAADR, CADAR, CADDR, THIRD, CDAAR, CDADR, CDDAR, CDDDR, LENGTH,
-ARRAYDIMENSIONS, LIST, MAKEARRAY, REVERSE, NTH, AREF, ASSOC, MEMBER, APPLY, FUNCALL, APPEND, MAPC, MAPCAR,
-MAPCAN, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, ONEPLUS, ONEMINUS, ABS, RANDOM, MAXFN, MINFN, NOTEQ, NUMEQ,
-LESS, LESSEQ, GREATER, GREATEREQ, PLUSP, MINUSP, ZEROP, ODDP, EVENP, INTEGERP, NUMBERP, FLOATFN, FLOATP,
-SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, EXP, SQRT, LOG, EXPT, CEILING, FLOOR, TRUNCATE, ROUND,
-CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRINGEQ, STRINGLESS, STRINGGREATER, SORT, STRINGFN,
-CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIOR, LOGXOR, LOGNOT, ASH,
-LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
-WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
-DIGITALWRITE, ANALOGREAD, ANALOGWRITE, DELAY, MILLIS, SLEEP, NOTE, EDIT, PPRINT, PPRINTALL, FORMAT,
-REQUIRE, LISTLIBRARY, DRAWPIXEL, DRAWLINE, DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT,
-FILLROUNDRECT, DRAWTRIANGLE, FILLTRIANGLE, DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP,
-FILLSCREEN, SETROTATION, INVERTDISPLAY, ENDFUNCTIONS };
-
 // Typedefs
 
 typedef unsigned int symbol_t;
@@ -158,132 +262,55 @@ typedef int (*gfun_t)();
 typedef void (*pfun_t)(char);
 typedef int PinMode;
 
-// Workspace
-#define WORDALIGNED __attribute__((aligned (4)))
-#define BUFFERSIZE 34  // Number of bits+2
-#define RAMFUNC __attribute__ ((section (".ramfunctions")))
-#define MEMBANK
-
-#if defined(ARDUINO_ITSYBITSY_M0) || defined(ARDUINO_SAMD_FEATHER_M0_EXPRESS)
-  #define WORKSPACESIZE 2816-SDSIZE       /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 128                    /* Bytes */
-  #define SDCARD_SS_PIN 4
-  #define STACKDIFF 320
-  #define CPU_ATSAMD21
-
-#elif defined(ARDUINO_GEMMA_M0)
-  #define WORKSPACESIZE 2816-SDSIZE       /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 128                    /* Bytes */
-  #define STACKDIFF 320
-  #define CPU_ATSAMD21
-
-#elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
-  #define WORKSPACESIZE 20480-SDSIZE      /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define CODESIZE 256                    /* Bytes */
-  #define SDCARD_SS_PIN 10
-  #define STACKDIFF 400
-  #define CPU_ATSAMD51
-
-#elif defined(ARDUINO_GRAND_CENTRAL_M4)
-  #define WORKSPACESIZE 28672-SDSIZE      /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 8192000           /* 8 MBytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define CODESIZE 256                    /* Bytes */
-  #define STACKDIFF 400
-  #define CPU_ATSAMD51P20
-
-#elif defined(ARDUINO_SAMD_MKRZERO)
-  #define WORKSPACESIZE 2816-SDSIZE       /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 128                    /* Bytes */
-  #define STACKDIFF 840
-  #define CPU_ATSAMD21
-
-#elif defined(ARDUINO_SAMD_ZERO)          /* Put this last, otherwise overrides the Adafruit boards */
-  #define WORKSPACESIZE 2816-SDSIZE       /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 128                    /* Bytes */
-  #define SDCARD_SS_PIN 10
-  #define STACKDIFF 320
-  #define CPU_ATSAMD21
-
-#elif defined(ARDUINO_BBC_MICROBIT)
-  #define WORKSPACESIZE 1280              /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 64                     /* Bytes */
-  #define STACKDIFF 320
-  #define CPU_NRF51822
-
-#elif defined(ARDUINO_CALLIOPE_MINI)
-  #define WORKSPACESIZE 3328              /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 64                     /* Bytes */
-  #define STACKDIFF 320
-  #define CPU_NRF51822
-
-#elif defined(ARDUINO_SINOBIT)
-  #define WORKSPACESIZE 1280              /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 64                     /* Bytes */
-  #define STACKDIFF 320
-  #define CPU_NRF51822
-
-#elif defined(ARDUINO_NRF52840_ITSYBITSY)
-  #define WORKSPACESIZE 20992-SDSIZE      /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define CODESIZE 256                    /* Bytes */
-  #define STACKDIFF 1200
-  #define CPU_NRF52840
-  
-#elif defined(ARDUINO_NRF52840_CLUE)
-  #define WORKSPACESIZE 19456-SDSIZE      /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define CODESIZE 256                    /* Bytes */
-  #define STACKDIFF 0
-  #define CPU_NRF52840
-
-#elif defined(MAX32620)
-  #define WORKSPACESIZE 24576-SDSIZE      /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define CODESIZE 256                    /* Bytes */
-  #define STACKDIFF 320
-
-#elif defined(ARDUINO_FEATHER_F405)
-  #define WORKSPACESIZE 11840-SDSIZE      /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define CODESIZE 256                    /* Bytes */
-  #define STACKDIFF 320
-
-#elif defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
-  #define WORKSPACESIZE 60000             /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define CODESIZE 256                    /* Bytes */
-  #define STACKDIFF 15000
-  #define SDCARD_SS_PIN BUILTIN_SDCARD
-  #define BitOrder uint8_t
-  #undef RAMFUNC
-  #define RAMFUNC FASTRUN
-  #undef MEMBANK
-  #define MEMBANK DMAMEM
-
-#else
-#error "Board not supported!"
+enum function { NIL, TEE, NOTHING, OPTIONAL, INITIALELEMENT, ELEMENTTYPE, BIT, AMPREST, LAMBDA, LET,
+LETSTAR, CLOSURE, SPECIAL_FORMS, QUOTE, DEFUN, DEFVAR, SETQ, LOOP, RETURN, PUSH, POP, INCF, DECF, SETF,
+DOLIST, DOTIMES, TRACE, UNTRACE, FORMILLIS, WITHOUTPUTTOSTRING, WITHSERIAL, WITHI2C, WITHSPI, WITHSDCARD,
+WITHGFX, DEFCODE, TAIL_FORMS, PROGN, IF, COND, WHEN, UNLESS, CASE, AND, OR, FUNCTIONS, NOT, NULLFN, CONS,
+ATOM, LISTP, CONSP, SYMBOLP, ARRAYP, BOUNDP, SETFN, STREAMP, EQ, CAR, FIRST, CDR, REST, CAAR, CADR,
+SECOND, CDAR, CDDR, CAAAR, CAADR, CADAR, CADDR, THIRD, CDAAR, CDADR, CDDAR, CDDDR, LENGTH,
+ARRAYDIMENSIONS, LIST, MAKEARRAY, REVERSE, NTH, AREF, ASSOC, MEMBER, APPLY, FUNCALL, APPEND, MAPC, MAPCAR,
+MAPCAN, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, ONEPLUS, ONEMINUS, ABS, RANDOM, MAXFN, MINFN, NOTEQ, NUMEQ,
+LESS, LESSEQ, GREATER, GREATEREQ, PLUSP, MINUSP, ZEROP, ODDP, EVENP, INTEGERP, NUMBERP, FLOATFN, FLOATP,
+SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, EXP, SQRT, LOG, EXPT, CEILING, FLOOR, TRUNCATE, ROUND,
+CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRINGEQ, STRINGLESS, STRINGGREATER, SORT, STRINGFN,
+CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIOR, LOGXOR, LOGNOT, ASH,
+LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
+WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
+DIGITALWRITE, ANALOGREAD, ANALOGREFERENCE, ANALOGREADRESOLUTION, ANALOGWRITE, ANALOGWRITERESOLUTION,
+DELAY, MILLIS, SLEEP, NOTE, EDIT, PPRINT, PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, DRAWPIXEL, DRAWLINE,
+DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT, FILLROUNDRECT, DRAWTRIANGLE, FILLTRIANGLE,
+DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP, FILLSCREEN, SETROTATION, INVERTDISPLAY,
+KEYWORDS, 
+K_HIGH, K_LOW,
+#if defined(CPU_ATSAMD21)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL, K_AR_INTERNAL1V0,
+K_AR_INTERNAL1V65, K_AR_INTERNAL2V23, K_AR_EXTERNAL,
+#elif defined(CPU_ATSAMD51)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_INTERNAL1V0, K_AR_INTERNAL1V1, K_AR_INTERNAL1V2,
+K_AR_INTERNAL1V25, K_AR_INTERNAL2V0, K_AR_INTERNAL2V2, K_AR_INTERNAL2V23, K_AR_INTERNAL2V4,
+K_AR_INTERNAL2V5, K_AR_INTERNAL1V65, K_AR_EXTERNAL,
+#elif defined(CPU_NRF51822)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_VBG, K_AR_SUPPLY_ONE_HALF,
+K_AR_SUPPLY_ONE_THIRD, K_AR_EXT0, K_AR_EXT1,
+#elif defined(CPU_NRF52840)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL, K_AR_INTERNAL_3_0,
+K_AR_INTERNAL_2_4, K_AR_INTERNAL_1_8, K_AR_INTERNAL_1_2, K_AR_VDD4,
+#elif defined(CPU_NRF52833)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL, K_AR_VDD4,
+#elif defined(CPU_iMXRT1062)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_OUTPUT_OPENDRAIN,
+#elif defined(CPU_MAX32620)
+K_INPUT, K_INPUT_PULLUP, K_OUTPUT, K_DEFAULT, K_EXTERNAL,
 #endif
+USERFUNCTIONS, ENDFUNCTIONS };
+
+// Global variables
 
 object Workspace[WORKSPACESIZE] WORDALIGNED MEMBANK;
 char SymbolTable[SYMBOLTABLESIZE];
 #if defined(CODESIZE)
 RAMFUNC uint8_t MyCode[CODESIZE] WORDALIGNED;
 #endif
-
-// Global variables
 
 jmp_buf exception;
 unsigned int Freespace = 0;
@@ -322,16 +349,17 @@ int builtin (char* n);
 void errorsub (symbol_t fname, PGM_P string) {
   pfl(pserial); pfstring(PSTR("Error: "), pserial);
   if (fname) {
-    pserial('\''); 
+    pserial('\'');
     pstring(symbolname(fname), pserial);
-    pfstring(PSTR("' "), pserial);
+    pserial('\''); pserial(' ');
   }
   pfstring(string, pserial);
 }
 
 void error (symbol_t fname, PGM_P string, object *symbol) {
   errorsub(fname, string);
-  pfstring(PSTR(": "), pserial); printobject(symbol, pserial);
+  pserial(':'); pserial(' ');
+  printobject(symbol, pserial);
   pln(pserial);
   GCStack = NULL;
   longjmp(exception, 1);
@@ -356,7 +384,9 @@ const char toofewargs[] PROGMEM = "too few arguments";
 const char noargument[] PROGMEM = "missing argument";
 const char nostream[] PROGMEM = "missing stream argument";
 const char overflow[] PROGMEM = "arithmetic overflow";
+const char indexnegative[] PROGMEM = "index can't be negative";
 const char invalidarg[] PROGMEM = "invalid argument";
+const char invalidkey[] PROGMEM = "invalid keyword";
 const char invalidpin[] PROGMEM = "invalid pin";
 const char resultproper[] PROGMEM = "result is not a proper list";
 const char oddargs[] PROGMEM = "odd number of arguments";
@@ -408,7 +438,7 @@ object *makefloat (float f) {
 object *character (char c) {
   object *ptr = myalloc();
   ptr->type = CHARACTER;
-  ptr->integer = c;
+  ptr->chars = c;
   return ptr;
 }
 
@@ -434,9 +464,9 @@ object *codehead (int entry) {
 }
 
 object *newsymbol (symbol_t name) {
-  for (int i=WORKSPACESIZE-1; i>=0; i--) {
+  for (int i=0; i<WORKSPACESIZE; i++) {
     object *obj = &Workspace[i];
-    if (obj->type == SYMBOL && obj->name == name) return obj;
+    if (symbolp(obj) && obj->name == name) return obj;
   }
   return symbol(name);
 }
@@ -458,7 +488,7 @@ void markobject (object *obj) {
   object* arg = car(obj);
   unsigned int type = obj->type;
   mark(obj);
-  
+
   if (type >= PAIR || type == ZZERO) { // cons
     markobject(arg);
     obj = cdr(obj);
@@ -469,7 +499,7 @@ void markobject (object *obj) {
     obj = cdr(obj);
     goto MARK;
   }
-  
+
   if (type == STRING) {
     obj = cdr(obj);
     while (obj != NULL) {
@@ -511,7 +541,7 @@ void movepointer (object *from, object *to) {
     object *obj = &Workspace[i];
     unsigned int type = (obj->type) & ~MARKBIT;
     if (marked(obj) && (type >= ARRAY || type==ZZERO)) {
-      if (car(obj) == (object *)((uintptr_t)from | MARKBIT)) 
+      if (car(obj) == (object *)((uintptr_t)from | MARKBIT))
         car(obj) = (object *)((uintptr_t)to | MARKBIT);
       if (cdr(obj) == from) cdr(obj) = to;
     }
@@ -699,7 +729,8 @@ int saveimage (object *arg) {
   SDWriteInt(file, (uintptr_t)GCStack);
   #if SYMBOLTABLESIZE > BUFFERSIZE
   SDWriteInt(file, (uintptr_t)SymbolTop);
-  for (int i=0; i<SYMBOLTABLESIZE; i++) file.write(SymbolTable[i]);
+  int SymbolUsed = SymbolTop - SymbolTable;
+  for (int i=0; i<SymbolUsed; i++) file.write(SymbolTable[i]);
   #endif
   for (int i=0; i<CODESIZE; i++) file.write(MyCode[i]);
   for (unsigned int i=0; i<imagesize; i++) {
@@ -714,7 +745,8 @@ int saveimage (object *arg) {
   if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, invalidarg, arg);
   if (!FlashSetup()) error2(SAVEIMAGE, PSTR("no DataFlash found."));
   // Save to DataFlash
-  int bytesneeded = 20 + SYMBOLTABLESIZE + CODESIZE + imagesize*8;
+  int SymbolUsed = SymbolTop - SymbolTable;
+  int bytesneeded = 20 + SymbolUsed + CODESIZE + imagesize*8;
   if (bytesneeded > DATAFLASHSIZE) error(SAVEIMAGE, PSTR("image size too large"), number(imagesize));
   uint32_t addr = 0;
   FlashBeginWrite((bytesneeded+65535)/65536);
@@ -724,7 +756,7 @@ int saveimage (object *arg) {
   FlashWriteInt(&addr, (uintptr_t)GCStack);
   #if SYMBOLTABLESIZE > BUFFERSIZE
   FlashWriteInt(&addr, (uintptr_t)SymbolTop);
-  for (int i=0; i<SYMBOLTABLESIZE; i++) FlashWriteByte(&addr, SymbolTable[i]);
+  for (int i=0; i<SymbolUsed; i++) FlashWriteByte(&addr, SymbolTable[i]);
   #endif
   for (int i=0; i<CODESIZE; i++) FlashWriteByte(&addr, MyCode[i]);
   for (unsigned int i=0; i<imagesize; i++) {
@@ -769,7 +801,8 @@ int loadimage (object *arg) {
   GCStack = (object *)SDReadInt(file);
   #if SYMBOLTABLESIZE > BUFFERSIZE
   SymbolTop = (char *)SDReadInt(file);
-  for (int i=0; i<SYMBOLTABLESIZE; i++) SymbolTable[i] = file.read();
+  int SymbolUsed = SymbolTop - SymbolTable;
+  for (int i=0; i<SymbolUsed; i++) SymbolTable[i] = file.read();
   #endif
   for (int i=0; i<CODESIZE; i++) MyCode[i] = file.read();
   for (int i=0; i<imagesize; i++) {
@@ -790,7 +823,8 @@ int loadimage (object *arg) {
   GCStack = (object *)FlashReadInt();
   #if SYMBOLTABLESIZE > BUFFERSIZE
   SymbolTop = (char *)FlashReadInt();
-  for (int i=0; i<SYMBOLTABLESIZE; i++) SymbolTable[i] = FlashReadByte();
+  int SymbolUsed = SymbolTop - SymbolTable;
+  for (int i=0; i<SymbolUsed; i++) SymbolTable[i] = FlashReadByte();
   #endif
   for (int i=0; i<CODESIZE; i++) MyCode[i] = FlashReadByte();
   for (int i=0; i<imagesize; i++) {
@@ -975,6 +1009,20 @@ int issymbol (object *obj, symbol_t n) {
   return symbolp(obj) && obj->name == n;
 }
 
+int keywordp (object *obj) {
+  if (!symbolp(obj)) return false;
+  symbol_t name = obj->name;
+  return ((name > KEYWORDS) && (name < USERFUNCTIONS));
+}
+
+int checkkeyword (symbol_t name, object *obj) {
+  if (!keywordp(obj)) error(name, PSTR("argument is not a keyword"), obj);
+  symbol_t kname = obj->name;
+  uint8_t context = getminmax(kname);
+  if (context != 0 && context != name) error(name, invalidkey, obj);
+  return ((int)lookupfn(kname));
+}
+
 void checkargs (symbol_t name, object *args) {
   int nargs = listlength(name, args);
   if (name >= ENDFUNCTIONS) error(0, PSTR("not valid here"), symbol(name));
@@ -1077,7 +1125,7 @@ object **arrayref (object *array, int index, int size) {
   }
   return p;
 }
-  
+
 object **getarray (symbol_t name, object *array, object *subs, object *env, int *bit) {
   int index = 0, size = 1, s;
   *bit = -1;
@@ -1269,7 +1317,7 @@ char nthchar (object *string, int n) {
 }
 
 int gstr () {
-  if (LastChar) { 
+  if (LastChar) {
     char temp = LastChar;
     LastChar = 0;
     return temp;
@@ -1310,7 +1358,7 @@ object *findvalue (object *var, object *env) {
 }
 
 // Handling closures
-  
+
 object *closure (int tc, symbol_t name, object *state, object *function, object *args, object **env) {
   int trace = 0;
   if (name) trace = tracing(name);
@@ -1320,6 +1368,7 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
     pserial(':'); pserial(' '); pserial('('); pstring(symbolname(name), pserial);
   }
   object *params = first(function);
+  if (!listp(params)) error(name, notalist, params);
   function = cdr(function);
   // Dropframe
   if (tc) {
@@ -1339,16 +1388,16 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
   while (params != NULL) {
     object *value;
     object *var = first(params);
-    if (symbolp(var) && var->name == OPTIONAL) optional = true;  
+    if (symbolp(var) && var->name == OPTIONAL) optional = true;
     else {
       if (consp(var)) {
         if (!optional) error(name, PSTR("invalid default value"), var);
         if (args == NULL) value = eval(second(var), *env);
         else { value = first(args); args = cdr(args); }
         var = first(var);
-        if (!symbolp(var)) error(name, PSTR("illegal optional parameter"), var); 
+        if (!symbolp(var)) error(name, PSTR("illegal optional parameter"), var);
       } else if (!symbolp(var)) {
-        error2(name, PSTR("illegal parameter"));     
+        error2(name, PSTR("illegal function parameter"));
       } else if (var->name == AMPREST) {
         params = cdr(params);
         var = first(params);
@@ -1363,7 +1412,7 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
       push(cons(var,value), *env);
       if (trace) { pserial(' '); printobject(value, pserial); }
     }
-    params = cdr(params);  
+    params = cdr(params);
   }
   if (args != NULL) error2(name, toomanyargs);
   if (trace) { pserial(')'); pln(pserial); }
@@ -1375,17 +1424,19 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
 object *apply (symbol_t name, object *function, object *args, object *env) {
   if (symbolp(function)) {
     symbol_t fname = function->name;
-    checkargs(fname, args);
-    return ((fn_ptr_type)lookupfn(fname))(args, env);
+    if ((fname > FUNCTIONS) && (fname < KEYWORDS)) {
+      checkargs(fname, args);
+      return ((fn_ptr_type)lookupfn(fname))(args, env);
+    } else function = eval(function, env);
   }
   if (consp(function) && issymbol(car(function), LAMBDA)) {
     function = cdr(function);
-    object *result = closure(0, 0, NULL, function, args, &env);
+    object *result = closure(0, name, NULL, function, args, &env);
     return eval(result, env);
   }
   if (consp(function) && issymbol(car(function), CLOSURE)) {
     function = cdr(function);
-    object *result = closure(0, 0, car(function), cdr(function), args, &env);
+    object *result = closure(0, name, car(function), cdr(function), args, &env);
     return eval(result, env);
   }
   error(name, PSTR("illegal function"), function);
@@ -1445,41 +1496,41 @@ object *cdrx (object *arg) {
   return cdr(arg);
 }
 
-// I2C interface
+// I2C interface for two ports
 
-void I2Cinit (bool enablePullup) {
+void I2Cinit (TwoWire *port, bool enablePullup) {
   (void) enablePullup;
-  Wire.begin();
+  port->begin();
 }
 
-int I2Cread () {
-  return Wire.read();
+int I2Cread (TwoWire *port) {
+  return port->read();
 }
 
-void I2Cwrite (uint8_t data) {
-  Wire.write(data);
+void I2Cwrite (TwoWire *port, uint8_t data) {
+  port->write(data);
 }
 
-bool I2Cstart (uint8_t address, uint8_t read) {
+bool I2Cstart (TwoWire *port, uint8_t address, uint8_t read) {
  int ok = true;
  if (read == 0) {
-   Wire.beginTransmission(address);
-   ok = (Wire.endTransmission(true) == 0);
-   Wire.beginTransmission(address);
+   port->beginTransmission(address);
+   ok = (port->endTransmission(true) == 0);
+   port->beginTransmission(address);
  }
- else Wire.requestFrom(address, I2CCount);
+ else port->requestFrom(address, I2CCount);
  return ok;
 }
 
-bool I2Crestart (uint8_t address, uint8_t read) {
-  int error = (Wire.endTransmission(false) != 0);
-  if (read == 0) Wire.beginTransmission(address);
-  else Wire.requestFrom(address, I2CCount);
+bool I2Crestart (TwoWire *port, uint8_t address, uint8_t read) {
+  int error = (port->endTransmission(false) != 0);
+  if (read == 0) port->beginTransmission(address);
+  else port->requestFrom(address, I2CCount);
   return error ? false : true;
 }
 
-void I2Cstop (uint8_t read) {
-  if (read == 0) Wire.endTransmission(); // Check for error?
+void I2Cstop (TwoWire *port, uint8_t read) {
+  if (read == 0) port->endTransmission(); // Check for error?
 }
 
 // Streams
@@ -1488,11 +1539,15 @@ inline int spiread () { return SPI.transfer(0); }
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline int spi1read () { return SPI1.transfer(0); }
 #endif
+inline int i2cread () { return I2Cread(&Wire); }
+#if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+inline int i2c1read () { return I2Cread(&Wire1); }
+#endif
 #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 inline int serial2read () { while (!Serial2.available()) testescape(); return Serial2.read(); }
 inline int serial3read () { while (!Serial3.available()) testescape(); return Serial3.read(); }
-#elif !defined(CPU_NRF51822) && !defined(ARDUINO_FEATHER_F405)
+#elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 #endif
 #if defined(sdcardsupport)
@@ -1508,7 +1563,7 @@ inline int SDread () {
 #endif
 
 void serialbegin (int address, int baud) {
-  #if defined(CPU_NRF51822) || defined(ARDUINO_FEATHER_F405)
+  #if defined(CPU_NRF51822) || defined(CPU_NRF52833) || defined(ARDUINO_FEATHER_F405)
   error(WITHSERIAL, PSTR("port not supported"), number(address));
   #elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
   if (address == 1) Serial1.begin((long)baud*100);
@@ -1526,7 +1581,7 @@ void serialend (int address) {
   if (address == 1) {Serial1.flush(); Serial1.end(); }
   else if (address == 2) {Serial2.flush(); Serial2.end(); }
   else if (address == 3) {Serial3.flush(); Serial3.end(); }
-  #elif !defined(CPU_NRF51822) && !defined(ARDUINO_FEATHER_F405)
+  #elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
   if (address == 1) {Serial1.flush(); Serial1.end(); }
   #endif
 }
@@ -1539,8 +1594,12 @@ gfun_t gstreamfun (object *args) {
     int stream = isstream(first(args));
     streamtype = stream>>8; address = stream & 0xFF;
   }
-  if (streamtype == I2CSTREAM) gfun = (gfun_t)I2Cread;
-  else if (streamtype == SPISTREAM) {
+  if (streamtype == I2CSTREAM) {
+    if (address < 128) gfun = i2cread;
+    #if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+    else gfun = i2c1read;
+    #endif
+  } else if (streamtype == SPISTREAM) {
     if (address < 128) gfun = spiread;
     #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
     else gfun = spi1read;
@@ -1552,7 +1611,7 @@ gfun_t gstreamfun (object *args) {
     else if (address == 1) gfun = serial1read;
     else if (address == 2) gfun = serial2read;
     else if (address == 3) gfun = serial3read;
-  #elif !defined(CPU_NRF51822) && !defined(ARDUINO_FEATHER_F405)
+    #elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
     else if (address == 1) gfun = serial1read;
     #endif
   }
@@ -1567,11 +1626,15 @@ inline void spiwrite (char c) { SPI.transfer(c); }
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline void spi1write (char c) { SPI1.transfer(c); }
 #endif
+inline void i2cwrite (char c) { I2Cwrite(&Wire, c); }
+#if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+inline void i2c1write (char c) { I2Cwrite(&Wire1, c); }
+#endif
 #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 inline void serial1write (char c) { Serial1.write(c); }
 inline void serial2write (char c) { Serial2.write(c); }
 inline void serial3write (char c) { Serial3.write(c); }
-#elif !defined(CPU_NRF51822)
+#elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833)
 inline void serial1write (char c) { Serial1.write(c); }
 #endif
 #if defined(sdcardsupport)
@@ -1589,20 +1652,23 @@ pfun_t pstreamfun (object *args) {
     int stream = isstream(first(args));
     streamtype = stream>>8; address = stream & 0xFF;
   }
-  if (streamtype == I2CSTREAM) pfun = (pfun_t)I2Cwrite;
-  else if (streamtype == SPISTREAM) {
+  if (streamtype == I2CSTREAM) {
+    if (address < 128) pfun = i2cwrite;
+    #if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+    else pfun = i2c1write;
+    #endif
+  } else if (streamtype == SPISTREAM) {
     if (address < 128) pfun = spiwrite;
     #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)|| defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
     else pfun = spi1write;
     #endif
-  }
-  else if (streamtype == SERIALSTREAM) {
+  } else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
     #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
     else if (address == 1) pfun = serial1write;
     else if (address == 2) pfun = serial2write;
     else if (address == 3) pfun = serial3write;
-    #elif !defined(CPU_NRF51822) && !defined(ARDUINO_FEATHER_F405)
+    #elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
     else if (address == 1) pfun = serial1write;
     #endif
   }   
@@ -1619,7 +1685,7 @@ pfun_t pstreamfun (object *args) {
   return pfun;
 }
 
-// Check pins
+// Check pins - these are board-specific not processor-specific
 
 void checkanalogread (int pin) {
 #if defined(ARDUINO_SAM_DUE)
@@ -1642,6 +1708,8 @@ void checkanalogread (int pin) {
   if (!((pin>=67 && pin<=74) || (pin>=54 && pin<=61)))  error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_BBC_MICROBIT)
   if (!((pin>=0 && pin<=4) || pin==10)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_BBC_MICROBIT_V2)
+  if (!((pin>=0 && pin<=4) || pin==10 || pin==29)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_CALLIOPE_MINI)
   if (!(pin==1 || pin==2 || (pin>=4 && pin<=6) || pin==21)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_SINOBIT)
@@ -1679,6 +1747,8 @@ void checkanalogwrite (int pin) {
 #elif defined(ARDUINO_GRAND_CENTRAL_M4)
   if (!((pin>=2 && pin<=9) || pin==11 || (pin>=13 && pin<=45) || pin==48 || (pin>=50 && pin<=53) || pin==58 || pin==61 || pin==68 || pin==69)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_BBC_MICROBIT)
+  if (!(pin>=0 && pin<=32)) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_BBC_MICROBIT_V2)
   if (!(pin>=0 && pin<=32)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_CALLIOPE_MINI)
   if (!(pin>=0 && pin<=30)) error(ANALOGREAD, invalidpin, number(pin));
@@ -1791,7 +1861,7 @@ void pcount (char c) {
   if (c == '\n') PrintCount++;
   PrintCount++;
 }
-  
+
 uint8_t atomwidth (object *obj) {
   PrintCount = 0;
   printobject(obj, pcount);
@@ -1799,7 +1869,7 @@ uint8_t atomwidth (object *obj) {
 }
 
 uint8_t hexwidth (object *obj) {
-  PrintCount = 0;      
+  PrintCount = 0;
   pinthex(obj->integer, pcount);
   return PrintCount;
 }
@@ -1943,7 +2013,7 @@ int assemble (int pass, int origin, object *entries, object *env, object *pcpair
 
 object *sp_quote (object *args, object *env) {
   (void) env;
-  checkargs(QUOTE, args); 
+  checkargs(QUOTE, args);
   return first(args);
 }
 
@@ -2128,7 +2198,7 @@ object *sp_setf (object *args, object *env) {
 // Other special forms
 
 object *sp_dolist (object *args, object *env) {
-  if (args == NULL) error2(DOLIST, noargument);
+  if (args == NULL || listlength(DOLIST, first(args)) < 2) error2(DOLIST, noargument);
   object *params = first(args);
   object *var = first(params);
   object *list = eval(second(params), env);
@@ -2159,7 +2229,7 @@ object *sp_dolist (object *args, object *env) {
 }
 
 object *sp_dotimes (object *args, object *env) {
-  if (args == NULL) error2(DOTIMES, noargument);
+  if (args == NULL || listlength(DOTIMES, first(args)) < 2) error2(DOTIMES, noargument);
   object *params = first(args);
   object *var = first(params);
   int count = checkinteger(DOTIMES, eval(second(params), env));
@@ -2223,6 +2293,7 @@ object *sp_untrace (object *args, object *env) {
 }
 
 object *sp_formillis (object *args, object *env) {
+  if (args == NULL) error2(FORMILLIS, noargument);
   object *param = first(args);
   unsigned long start = millis();
   unsigned long now, total = 0;
@@ -2237,6 +2308,7 @@ object *sp_formillis (object *args, object *env) {
 }
 
 object *sp_withoutputtostring (object *args, object *env) {
+  if (args == NULL) error2(WITHOUTPUTTOSTRING, noargument);
   object *params = first(args);
   if (params == NULL) error2(WITHOUTPUTTOSTRING, nostream);
   object *var = first(params);
@@ -2273,6 +2345,10 @@ object *sp_withi2c (object *args, object *env) {
   object *var = first(params);
   int address = checkinteger(WITHI2C, eval(second(params), env));
   params = cddr(params);
+  if ((address == 0 || address == 1) && params != NULL) {
+    address = address * 128 + checkinteger(WITHI2C, eval(first(params), env));
+    params = cdr(params);
+  }
   int read = 0; // Write
   I2CCount = 0;
   if (params != NULL) {
@@ -2280,12 +2356,17 @@ object *sp_withi2c (object *args, object *env) {
     if (integerp(rw)) I2CCount = rw->integer;
     read = (rw != NULL);
   }
-  I2Cinit(1); // Pullups
-  object *pair = cons(var, (I2Cstart(address, read)) ? stream(I2CSTREAM, address) : nil);
+  // Top bit of address is I2C port
+  TwoWire *port = &Wire;
+  #if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+  if (address > 127) port = &Wire1;
+  #endif
+  I2Cinit(port, 1); // Pullups
+  object *pair = cons(var, (I2Cstart(port, address & 0x7F, read)) ? stream(I2CSTREAM, address) : nil);
   push(pair,env);
   object *forms = cdr(args);
   object *result = eval(tf_progn(forms,env), env);
-  I2Cstop(read);
+  I2Cstop(port, read);
   return result;
 }
 
@@ -2323,18 +2404,18 @@ object *sp_withspi (object *args, object *env) {
   #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
   if (address == 1) spiClass = &SPI1;
   #endif
-  (*spiClass).begin();
-  (*spiClass).beginTransaction(SPISettings(((unsigned long)clock * 1000), bitorder, mode));
+  spiClass->begin();
+  spiClass->beginTransaction(SPISettings(((unsigned long)clock * 1000), bitorder, mode));
   digitalWrite(pin, LOW);
   object *forms = cdr(args);
   object *result = eval(tf_progn(forms,env), env);
   digitalWrite(pin, HIGH);
-  (*spiClass).endTransaction();
+  spiClass->endTransaction();
   return result;
 }
 
 object *sp_withsdcard (object *args, object *env) {
-#if defined(sdcardsupport)
+  #if defined(sdcardsupport)
   object *params = first(args);
   if (params == NULL) error2(WITHSDCARD, nostream);
   object *var = first(params);
@@ -2358,11 +2439,11 @@ object *sp_withsdcard (object *args, object *env) {
   object *result = eval(tf_progn(forms,env), env);
   if (mode >= 1) SDpfile.close(); else SDgfile.close();
   return result;
-#else
+  #else
   (void) args, (void) env;
   error2(WITHSDCARD, PSTR("not supported"));
   return nil;
-#endif
+  #endif
 }
 
 object *sp_withgfx (object *args, object *env) {
@@ -2769,6 +2850,7 @@ object *fn_reverse (object *args, object *env) {
 object *fn_nth (object *args, object *env) {
   (void) env;
   int n = checkinteger(NTH, first(args));
+  if (n < 0) error(NTH, indexnegative, first(args));
   object *list = second(args);
   while (list != NULL) {
     if (improperp(list)) error(NTH, notproper, list);
@@ -2828,7 +2910,7 @@ object *fn_append (object *args, object *env) {
   (void) env;
   object *head = NULL;
   object *tail;
-  while (args != NULL) {   
+  while (args != NULL) {
     object *list = first(args);
     if (!listp(list)) error(APPEND, notalist, list);
     while (consp(list)) {
@@ -3044,7 +3126,7 @@ object *fn_divide (object *args, object *env) {
       else if (i == 1) return number(1);
       else return makefloat(1.0 / i);
     } else error(DIVIDE, notanumber, arg);
-  }    
+  }
   // Multiple arguments
   if (floatp(arg)) return divide_floats(args, arg->single_float);
   else if (integerp(arg)) {
@@ -3053,7 +3135,7 @@ object *fn_divide (object *args, object *env) {
       arg = car(args);
       if (floatp(arg)) {
         return divide_floats(args, result);
-      } else if (integerp(arg)) {       
+      } else if (integerp(arg)) {
         int i = arg->integer;
         if (i == 0) error2(DIVIDE, PSTR("division by zero"));
         if ((result % i) != 0) return divide_floats(args, result);
@@ -3062,7 +3144,7 @@ object *fn_divide (object *args, object *env) {
         args = cdr(args);
       } else error(DIVIDE, notanumber, arg);
     }
-    return number(result); 
+    return number(result);
   } else error(DIVIDE, notanumber, arg);
   return nil;
 }
@@ -3128,7 +3210,7 @@ object *fn_random (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   if (integerp(arg)) return number(random(arg->integer));
-  else if (!floatp(arg)) return makefloat((float)rand()/(float)(RAND_MAX/(arg->single_float)));
+  else if (floatp(arg)) return makefloat((float)rand()/(float)(RAND_MAX/(arg->single_float)));
   else error(RANDOM, notanumber, arg);
   return nil;
 }
@@ -3142,7 +3224,7 @@ object *fn_maxfn (object *args, object *env) {
     if (integerp(result) && integerp(arg)) {
       if ((arg->integer) > (result->integer)) result = arg;
     } else if ((checkintfloat(MAXFN, arg) > checkintfloat(MAXFN, result))) result = arg;
-    args = cdr(args); 
+    args = cdr(args);
   }
   return result;
 }
@@ -3156,7 +3238,7 @@ object *fn_minfn (object *args, object *env) {
     if (integerp(result) && integerp(arg)) {
       if ((arg->integer) < (result->integer)) result = arg;
     } else if ((checkintfloat(MINFN, arg) < checkintfloat(MINFN, result))) result = arg;
-    args = cdr(args); 
+    args = cdr(args);
   }
   return result;
 }
@@ -3280,7 +3362,7 @@ object *fn_zerop (object *args, object *env) {
   if (floatp(arg)) return ((arg->single_float) == 0.0) ? tee : nil;
   else if (integerp(arg)) return ((arg->integer) == 0) ? tee : nil;
   else error(ZEROP, notanumber, arg);
-  return nil; 
+  return nil;
 }
 
 object *fn_oddp (object *args, object *env) {
@@ -3404,7 +3486,7 @@ object *fn_expt (object *args, object *env) {
   object *arg1 = first(args); object *arg2 = second(args);
   float float1 = checkintfloat(EXPT, arg1);
   float value = log(abs(float1)) * checkintfloat(EXPT, arg2);
-  if (integerp(arg1) && integerp(arg2) && ((arg2->integer) > 0) && (abs(value) < 21.4875)) 
+  if (integerp(arg1) && integerp(arg2) && ((arg2->integer) > 0) && (abs(value) < 21.4875))
     return number(intpower(arg1->integer, arg2->integer));
   if (float1 < 0) error2(EXPT, PSTR("invalid result"));
   return makefloat(exp(value));
@@ -3481,7 +3563,7 @@ object *fn_stringp (object *args, object *env) {
 
 bool stringcompare (symbol_t name, object *args, bool lt, bool gt, bool eq) {
   object *arg1 = first(args); if (!stringp(arg1)) error(name, notastring, arg1);
-  object *arg2 = second(args); if (!stringp(arg2)) error(name, notastring, arg2); 
+  object *arg2 = second(args); if (!stringp(arg2)) error(name, notastring, arg2);
   arg1 = cdr(arg1);
   arg2 = cdr(arg2);
   while ((arg1 != NULL) || (arg2 != NULL)) {
@@ -3568,8 +3650,7 @@ object *fn_stringfn (object *args, object *env) {
 object *fn_concatenate (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  symbol_t name = arg->name;
-  if (name != STRINGFN) error2(CONCATENATE, PSTR("only supports strings"));
+  if (arg->name != STRINGFN) error2(CONCATENATE, PSTR("only supports strings"));
   args = cdr(args);
   object *result = myalloc();
   result->type = STRING;
@@ -3599,6 +3680,7 @@ object *fn_subseq (object *args, object *env) {
   object *arg = first(args);
   if (!stringp(arg)) error(SUBSEQ, notastring, arg);
   int start = checkinteger(SUBSEQ, second(args));
+  if (start < 0) error(SUBSEQ, indexnegative, second(args));
   int end;
   args = cddr(args);
   if (args != NULL) end = checkinteger(SUBSEQ, car(args)); else end = stringlength(arg);
@@ -3615,7 +3697,7 @@ object *fn_subseq (object *args, object *env) {
   return result;
 }
 
-object *fn_readfromstring (object *args, object *env) {   
+object *fn_readfromstring (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   if (!stringp(arg)) error(READFROMSTRING, notastring, arg);
@@ -3624,7 +3706,7 @@ object *fn_readfromstring (object *args, object *env) {
   return read(gstr);
 }
 
-object *fn_princtostring (object *args, object *env) {   
+object *fn_princtostring (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   object *obj = startstring(PRINCTOSTRING);
@@ -3633,7 +3715,7 @@ object *fn_princtostring (object *args, object *env) {
   return obj;
 }
 
-object *fn_prin1tostring (object *args, object *env) {   
+object *fn_prin1tostring (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   object *obj = startstring(PRIN1TOSTRING);
@@ -3825,7 +3907,12 @@ object *fn_restarti2c (object *args, object *env) {
   }
   int address = stream & 0xFF;
   if (stream>>8 != I2CSTREAM) error2(RESTARTI2C, PSTR("not an i2c stream"));
-  return I2Crestart(address, read) ? tee : nil;
+  TwoWire *port;
+  if (address < 128) port = &Wire;
+  #if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+  else port = &Wire1;
+  #endif
+  return I2Crestart(port, address & 0x7F, read) ? tee : nil;
 }
 
 object *fn_gc (object *obj, object *env) {
@@ -3869,14 +3956,15 @@ object *fn_pinmode (object *args, object *env) {
   (void) env;
   int pin = checkinteger(PINMODE, first(args));
   PinMode pm = INPUT;
-  object *mode = second(args);
-  if (integerp(mode)) {
-    int nmode = mode->integer;
-    if (nmode == 1) pm = OUTPUT; else if (nmode == 2) pm = INPUT_PULLUP;
+  object *arg = second(args);
+  if (keywordp(arg)) pm = checkkeyword(PINMODE, arg);
+  else if (integerp(arg)) {
+    int mode = arg->integer;
+    if (mode == 1) pm = OUTPUT; else if (mode == 2) pm = INPUT_PULLUP;
     #if defined(INPUT_PULLDOWN)
-    else if (nmode == 4) pm = INPUT_PULLDOWN;
+    else if (mode == 4) pm = INPUT_PULLDOWN;
     #endif
-  } else if (mode != nil) pm = OUTPUT;
+  } else if (arg != nil) pm = OUTPUT;
   pinMode(pin, pm);
   return nil;
 }
@@ -3890,19 +3978,45 @@ object *fn_digitalread (object *args, object *env) {
 object *fn_digitalwrite (object *args, object *env) {
   (void) env;
   int pin = checkinteger(DIGITALWRITE, first(args));
-  object *mode = second(args);
-  if (integerp(mode)) digitalWrite(pin, mode->integer ? HIGH : LOW);
-  else digitalWrite(pin, (mode != nil) ? HIGH : LOW);
-  return mode;
+  object *arg = second(args);
+  int mode;
+  if (keywordp(arg)) mode = checkkeyword(DIGITALWRITE, arg);
+  else if (integerp(arg)) mode = arg->integer ? HIGH : LOW;
+  else mode = (arg != nil) ? HIGH : LOW;
+  digitalWrite(pin, mode);
+  return arg;
 }
 
 object *fn_analogread (object *args, object *env) {
   (void) env;
-  int pin = checkinteger(ANALOGREAD, first(args));
-  checkanalogread(pin);
+  int pin;
+  object *arg = first(args);
+  if (keywordp(arg)) pin = checkkeyword(ANALOGREAD, arg);
+  else {
+    pin = checkinteger(ANALOGREAD, arg);
+    checkanalogread(pin);
+  }
   return number(analogRead(pin));
 }
- 
+
+object *fn_analogreference (object *args, object *env) {
+  (void) env;
+  object *arg = first(args);
+  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+  error2(ANALOGREFERENCE, PSTR("not supported"));
+  #else
+  analogReference((eAnalogReference)checkkeyword(ANALOGREFERENCE, arg));
+  #endif
+  return arg;
+}
+
+object *fn_analogreadresolution (object *args, object *env) {
+  (void) env;
+  object *arg = first(args);
+  analogReadResolution(checkinteger(ANALOGREADRESOLUTION, arg));
+  return arg;
+}
+
 object *fn_analogwrite (object *args, object *env) {
   (void) env;
   int pin = checkinteger(ANALOGWRITE, first(args));
@@ -3910,6 +4024,13 @@ object *fn_analogwrite (object *args, object *env) {
   object *value = second(args);
   analogWrite(pin, checkinteger(ANALOGWRITE, value));
   return value;
+}
+
+object *fn_analogwriteresolution (object *args, object *env) {
+  (void) env;
+  object *arg = first(args);
+  analogWriteResolution(checkinteger(ANALOGWRITERESOLUTION, arg));
+  return arg;
 }
 
 object *fn_delay (object *args, object *env) {
@@ -3979,9 +4100,9 @@ object *fn_pprint (object *args, object *env) {
   (void) env;
   object *obj = first(args);
   pfun_t pfun = pstreamfun(cdr(args));
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   if (pfun == gfxwrite) ppwidth = GFXPPWIDTH;
-#endif
+  #endif
   pln(pfun);
   superprint(obj, 0, pfun);
   ppwidth = PPWIDTH;
@@ -3991,9 +4112,9 @@ object *fn_pprint (object *args, object *env) {
 object *fn_pprintall (object *args, object *env) {
   (void) env;
   pfun_t pfun = pstreamfun(args);
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   if (pfun == gfxwrite) ppwidth = GFXPPWIDTH;
-#endif
+  #endif
   object *globals = GlobalEnv;
   while (globals != NULL) {
     object *pair = first(globals);
@@ -4120,7 +4241,7 @@ object *fn_require (object *args, object *env) {
     }
     line = read(glibrary);
   }
-  return nil; 
+  return nil;
 }
 
 object *fn_listlibrary (object *args, object *env) {
@@ -4134,122 +4255,122 @@ object *fn_listlibrary (object *args, object *env) {
     }
     line = read(glibrary);
   }
-  return symbol(NOTHING); 
+  return symbol(NOTHING);
 }
 
 // Graphics functions
 
 object *fn_drawpixel (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t colour = COLOR_WHITE;
   if (cddr(args) != NULL) colour = checkinteger(DRAWPIXEL, third(args));
   tft.drawPixel(checkinteger(DRAWPIXEL, first(args)), checkinteger(DRAWPIXEL, second(args)), colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawline (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWLINE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWLINE, car(args));
   tft.drawLine(params[0], params[1], params[2], params[3], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWRECT, car(args));
   tft.drawRect(params[0], params[1], params[2], params[3], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(FILLRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLRECT, car(args));
   tft.fillRect(params[0], params[1], params[2], params[3], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawcircle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[3], colour = COLOR_WHITE;
   for (int i=0; i<3; i++) { params[i] = checkinteger(DRAWCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWCIRCLE, car(args));
   tft.drawCircle(params[0], params[1], params[2], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillcircle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[3], colour = COLOR_WHITE;
   for (int i=0; i<3; i++) { params[i] = checkinteger(FILLCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLCIRCLE, car(args));
   tft.fillCircle(params[0], params[1], params[2], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawroundrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[5], colour = COLOR_WHITE;
   for (int i=0; i<5; i++) { params[i] = checkinteger(DRAWROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWROUNDRECT, car(args));
   tft.drawRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillroundrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[5], colour = COLOR_WHITE;
   for (int i=0; i<5; i++) { params[i] = checkinteger(FILLROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLROUNDRECT, car(args));
   tft.fillRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawtriangle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[6], colour = COLOR_WHITE;
   for (int i=0; i<6; i++) { params[i] = checkinteger(DRAWTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWTRIANGLE, car(args));
   tft.drawTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_filltriangle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[6], colour = COLOR_WHITE;
   for (int i=0; i<6; i++) { params[i] = checkinteger(FILLTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLTRIANGLE, car(args));
   tft.fillTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawchar (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t colour = COLOR_WHITE, bg = COLOR_BLACK, size = 1;
   object *more = cdr(cddr(args));
@@ -4264,66 +4385,66 @@ object *fn_drawchar (object *args, object *env) {
   }
   tft.drawChar(checkinteger(DRAWCHAR, first(args)), checkinteger(DRAWCHAR, second(args)), checkchar(DRAWCHAR, third(args)),
     colour, bg, size);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_setcursor (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setCursor(checkinteger(SETCURSOR, first(args)), checkinteger(SETCURSOR, second(args)));
-#endif
+  #endif
   return nil;
 }
 
 object *fn_settextcolor (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   if (cdr(args) != NULL) tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)), checkinteger(SETTEXTCOLOR, second(args)));
   else tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)));
-#endif
+  #endif
   return nil;
 }
 
 object *fn_settextsize (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setTextSize(checkinteger(SETTEXTSIZE, first(args)));
-#endif
+  #endif
   return nil;
 }
 
 object *fn_settextwrap (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setTextWrap(first(args) != NULL);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillscreen (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t colour = COLOR_BLACK;
   if (args != NULL) colour = checkinteger(FILLSCREEN, first(args));
   tft.fillScreen(colour);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_setrotation (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setRotation(checkinteger(SETROTATION, first(args)));
-#endif
+  #endif
   return nil;
 }
 
 object *fn_invertdisplay (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.invertDisplay(first(args) != NULL);
-#endif
+  #endif
   return nil;
 }
 
@@ -4386,7 +4507,7 @@ const char string51[] PROGMEM = "consp";
 const char string52[] PROGMEM = "symbolp";
 const char string53[] PROGMEM = "arrayp";
 const char string54[] PROGMEM = "boundp";
-const char string55[] PROGMEM = "setfn";
+const char string55[] PROGMEM = "set";
 const char string56[] PROGMEM = "streamp";
 const char string57[] PROGMEM = "eq";
 const char string58[] PROGMEM = "car";
@@ -4511,35 +4632,119 @@ const char string176[] PROGMEM = "pinmode";
 const char string177[] PROGMEM = "digitalread";
 const char string178[] PROGMEM = "digitalwrite";
 const char string179[] PROGMEM = "analogread";
-const char string180[] PROGMEM = "analogwrite";
-const char string181[] PROGMEM = "delay";
-const char string182[] PROGMEM = "millis";
-const char string183[] PROGMEM = "sleep";
-const char string184[] PROGMEM = "note";
-const char string185[] PROGMEM = "edit";
-const char string186[] PROGMEM = "pprint";
-const char string187[] PROGMEM = "pprintall";
-const char string188[] PROGMEM = "format";
-const char string189[] PROGMEM = "require";
-const char string190[] PROGMEM = "list-library";
-const char string191[] PROGMEM = "draw-pixel";
-const char string192[] PROGMEM = "draw-line";
-const char string193[] PROGMEM = "draw-rect";
-const char string194[] PROGMEM = "fill-rect";
-const char string195[] PROGMEM = "draw-circle";
-const char string196[] PROGMEM = "fill-circle";
-const char string197[] PROGMEM = "draw-round-rect";
-const char string198[] PROGMEM = "fill-round-rect";
-const char string199[] PROGMEM = "draw-triangle";
-const char string200[] PROGMEM = "fill-triangle";
-const char string201[] PROGMEM = "draw-char";
-const char string202[] PROGMEM = "set-cursor";
-const char string203[] PROGMEM = "set-text-color";
-const char string204[] PROGMEM = "set-text-size";
-const char string205[] PROGMEM = "set-text-wrap";
-const char string206[] PROGMEM = "fill-screen";
-const char string207[] PROGMEM = "set-rotation";
-const char string208[] PROGMEM = "invert-display";
+const char string180[] PROGMEM = "analogreference";
+const char string181[] PROGMEM = "analogreadresolution";
+const char string182[] PROGMEM = "analogwrite";
+const char string183[] PROGMEM = "analogwriteresolution";
+const char string184[] PROGMEM = "delay";
+const char string185[] PROGMEM = "millis";
+const char string186[] PROGMEM = "sleep";
+const char string187[] PROGMEM = "note";
+const char string188[] PROGMEM = "edit";
+const char string189[] PROGMEM = "pprint";
+const char string190[] PROGMEM = "pprintall";
+const char string191[] PROGMEM = "format";
+const char string192[] PROGMEM = "require";
+const char string193[] PROGMEM = "list-library";
+const char string194[] PROGMEM = "draw-pixel";
+const char string195[] PROGMEM = "draw-line";
+const char string196[] PROGMEM = "draw-rect";
+const char string197[] PROGMEM = "fill-rect";
+const char string198[] PROGMEM = "draw-circle";
+const char string199[] PROGMEM = "fill-circle";
+const char string200[] PROGMEM = "draw-round-rect";
+const char string201[] PROGMEM = "fill-round-rect";
+const char string202[] PROGMEM = "draw-triangle";
+const char string203[] PROGMEM = "fill-triangle";
+const char string204[] PROGMEM = "draw-char";
+const char string205[] PROGMEM = "set-cursor";
+const char string206[] PROGMEM = "set-text-color";
+const char string207[] PROGMEM = "set-text-size";
+const char string208[] PROGMEM = "set-text-wrap";
+const char string209[] PROGMEM = "fill-screen";
+const char string210[] PROGMEM = "set-rotation";
+const char string211[] PROGMEM = "invert-display";
+const char string212[] PROGMEM = "";
+const char string213[] PROGMEM = ":high";
+const char string214[] PROGMEM = ":low";
+#if defined(CPU_ATSAMD21)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = ":ar-default";
+const char string220[] PROGMEM = ":ar-internal";
+const char string221[] PROGMEM = ":ar-internal1v0";
+const char string222[] PROGMEM = ":ar-internal1v65";
+const char string223[] PROGMEM = ":ar-internal2v23";
+const char string224[] PROGMEM = ":ar-external";
+const char string225[] PROGMEM = "";
+#elif defined(CPU_ATSAMD51)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = ":ar-internal1v0";
+const char string220[] PROGMEM = ":ar-internal1v1";
+const char string221[] PROGMEM = ":ar-internal1v2";
+const char string222[] PROGMEM = ":ar-internal1v25";
+const char string223[] PROGMEM = ":ar-internal2v0";
+const char string224[] PROGMEM = ":ar-internal2v2";
+const char string225[] PROGMEM = ":ar-internal2v23";
+const char string226[] PROGMEM = ":ar-internal2v4";
+const char string227[] PROGMEM = ":ar-internal2v5";
+const char string228[] PROGMEM = ":ar-internal1v65";
+const char string229[] PROGMEM = ":ar-external";
+const char string230[] PROGMEM = "";
+#elif defined(CPU_NRF51822)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = ":ar-default";
+const char string220[] PROGMEM = ":ar-vbg";
+const char string221[] PROGMEM = ":ar-supply-one-half";
+const char string222[] PROGMEM = ":ar-supply-one-third";
+const char string223[] PROGMEM = ":ar-ext0";
+const char string224[] PROGMEM = ":ar-ext1";
+const char string225[] PROGMEM = "";
+#elif defined(CPU_NRF52840)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = ":ar-default";
+const char string220[] PROGMEM = ":ar-internal";
+const char string221[] PROGMEM = ":ar-internal-3-0";
+const char string222[] PROGMEM = ":ar-internal-2-4";
+const char string223[] PROGMEM = ":ar-internal-1-8";
+const char string224[] PROGMEM = ":ar-internal-1-2";
+const char string225[] PROGMEM = ":ar-vdd4";
+const char string226[] PROGMEM = "";
+#elif defined(CPU_NRF52833)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = ":ar-default";
+const char string220[] PROGMEM = ":ar-internal";
+const char string221[] PROGMEM = ":ar-vdd4";
+const char string222[] PROGMEM = "";
+#elif defined(CPU_iMXRT1062)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = ":output-opendrain";
+const char string220[] PROGMEM = "";
+#elif defined(CPU_MAX32620)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":output";
+const char string218[] PROGMEM = ":default";
+const char string219[] PROGMEM = ":external";
+const char string220[] PROGMEM = "";
+#endif
 
 // Third parameter is no. of arguments; 1st hex digit is min, 2nd hex digit is max, 0xF is unlimited
 const tbl_entry_t lookup_table[] PROGMEM = {
@@ -4723,35 +4928,119 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string177, fn_digitalread, 0x11 },
   { string178, fn_digitalwrite, 0x22 },
   { string179, fn_analogread, 0x11 },
-  { string180, fn_analogwrite, 0x22 },
-  { string181, fn_delay, 0x11 },
-  { string182, fn_millis, 0x00 },
-  { string183, fn_sleep, 0x11 },
-  { string184, fn_note, 0x03 },
-  { string185, fn_edit, 0x11 },
-  { string186, fn_pprint, 0x12 },
-  { string187, fn_pprintall, 0x01 },
-  { string188, fn_format, 0x2F },
-  { string189, fn_require, 0x11 },
-  { string190, fn_listlibrary, 0x00 },
-  { string191, fn_drawpixel, 0x23 },
-  { string192, fn_drawline, 0x45 },
-  { string193, fn_drawrect, 0x45 },
-  { string194, fn_fillrect, 0x45 },
-  { string195, fn_drawcircle, 0x34 },
-  { string196, fn_fillcircle, 0x34 },
-  { string197, fn_drawroundrect, 0x56 },
-  { string198, fn_fillroundrect, 0x56 },
-  { string199, fn_drawtriangle, 0x67 },
-  { string200, fn_filltriangle, 0x67 },
-  { string201, fn_drawchar, 0x36 },
-  { string202, fn_setcursor, 0x22 },
-  { string203, fn_settextcolor, 0x12 },
-  { string204, fn_settextsize, 0x11 },
-  { string205, fn_settextwrap, 0x11 },
-  { string206, fn_fillscreen, 0x01 },
-  { string207, fn_setrotation, 0x11 },
-  { string208, fn_invertdisplay, 0x11 },
+  { string180, fn_analogreference, 0x11 },
+  { string181, fn_analogreadresolution, 0x11 },
+  { string182, fn_analogwrite, 0x22 },
+  { string183, fn_analogwriteresolution, 0x11 },
+  { string184, fn_delay, 0x11 },
+  { string185, fn_millis, 0x00 },
+  { string186, fn_sleep, 0x11 },
+  { string187, fn_note, 0x03 },
+  { string188, fn_edit, 0x11 },
+  { string189, fn_pprint, 0x12 },
+  { string190, fn_pprintall, 0x01 },
+  { string191, fn_format, 0x2F },
+  { string192, fn_require, 0x11 },
+  { string193, fn_listlibrary, 0x00 },
+  { string194, fn_drawpixel, 0x23 },
+  { string195, fn_drawline, 0x45 },
+  { string196, fn_drawrect, 0x45 },
+  { string197, fn_fillrect, 0x45 },
+  { string198, fn_drawcircle, 0x34 },
+  { string199, fn_fillcircle, 0x34 },
+  { string200, fn_drawroundrect, 0x56 },
+  { string201, fn_fillroundrect, 0x56 },
+  { string202, fn_drawtriangle, 0x67 },
+  { string203, fn_filltriangle, 0x67 },
+  { string204, fn_drawchar, 0x36 },
+  { string205, fn_setcursor, 0x22 },
+  { string206, fn_settextcolor, 0x12 },
+  { string207, fn_settextsize, 0x11 },
+  { string208, fn_settextwrap, 0x11 },
+  { string209, fn_fillscreen, 0x01 },
+  { string210, fn_setrotation, 0x11 },
+  { string211, fn_invertdisplay, 0x11 },
+  { string212, NULL, 0x00 },
+  { string213, (fn_ptr_type)HIGH, DIGITALWRITE },
+  { string214, (fn_ptr_type)LOW, DIGITALWRITE },
+#if defined(CPU_ATSAMD21)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string220, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
+  { string221, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
+  { string222, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
+  { string223, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
+  { string225, NULL, 0x00 },
+#elif defined(CPU_ATSAMD51)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
+  { string220, (fn_ptr_type)AR_INTERNAL1V1, ANALOGREFERENCE },
+  { string221, (fn_ptr_type)AR_INTERNAL1V2, ANALOGREFERENCE },
+  { string222, (fn_ptr_type)AR_INTERNAL1V25, ANALOGREFERENCE },
+  { string223, (fn_ptr_type)AR_INTERNAL2V0, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_INTERNAL2V2, ANALOGREFERENCE },
+  { string225, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
+  { string226, (fn_ptr_type)AR_INTERNAL2V4, ANALOGREFERENCE },
+  { string227, (fn_ptr_type)AR_INTERNAL2V5, ANALOGREFERENCE },
+  { string228, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
+  { string229, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
+  { string230, NULL, 0x00 },
+#elif defined(CPU_NRF51822)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string220, (fn_ptr_type)AR_VBG, ANALOGREFERENCE },
+  { string221, (fn_ptr_type)AR_SUPPLY_ONE_HALF, ANALOGREFERENCE },
+  { string222, (fn_ptr_type)AR_SUPPLY_ONE_THIRD, ANALOGREFERENCE },
+  { string223, (fn_ptr_type)AR_EXT0, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_EXT1, ANALOGREFERENCE },
+  { string225, NULL, 0x00 },
+#elif defined(CPU_NRF52840)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string220, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
+  { string221, (fn_ptr_type)AR_INTERNAL_3_0, ANALOGREFERENCE },
+  { string222, (fn_ptr_type)AR_INTERNAL_2_4, ANALOGREFERENCE },
+  { string223, (fn_ptr_type)AR_INTERNAL_1_8, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_INTERNAL_1_2, ANALOGREFERENCE },
+  { string225, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
+  { string226, NULL, 0x00 },
+#elif defined(CPU_NRF52833)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string220, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
+  { string221, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
+  { string222, NULL, 0x00 },
+#elif defined(CPU_iMXRT1062)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, (fn_ptr_type)OUTPUT_OPENDRAIN, PINMODE },
+  { string220, NULL, 0x00 },
+#elif defined(CPU_MAX32620)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)OUTPUT, PINMODE },
+  { string218, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
+  { string219, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
+  { string220, NULL, 0x00 },
+#endif
 };
 
 // Table lookup functions
@@ -4783,8 +5072,13 @@ intptr_t lookupfn (symbol_t name) {
   return (intptr_t)lookup_table[name].fptr;
 }
 
-void checkminmax (symbol_t name, int nargs) {
+uint8_t getminmax (symbol_t name) {
   uint8_t minmax = lookup_table[name].minmax;
+  return minmax;
+}
+
+void checkminmax (symbol_t name, int nargs) {
+  uint8_t minmax = getminmax(name);
   if (nargs<(minmax >> 4)) error2(name, toofewargs);
   if ((minmax & 0x0f) != 0x0f && nargs>(minmax & 0x0f)) error2(name, toomanyargs);
 }
@@ -4816,6 +5110,7 @@ void testescape () {
 }
 
 // Main evaluator
+
 #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 #define ENDSTACK _ebss
 #else
@@ -4831,13 +5126,13 @@ object *eval (object *form, object *env) {
   // Enough space?
   // Serial.println((uint32_t)sp - (uint32_t)&ENDSTACK); // Find best STACKDIFF value
   if (((uint32_t)sp - (uint32_t)&ENDSTACK) < STACKDIFF) error2(0, PSTR("stack overflow"));
-  if (Freespace <= WORKSPACESIZE>>4) gc(form, env);
+  if (Freespace <= WORKSPACESIZE>>4) gc(form, env);      // GC when 1/16 of workspace left
   // Escape
   if (tstflag(ESCAPE)) { clrflag(ESCAPE); error2(0, PSTR("escape!"));}
   if (!tstflag(NOESC)) testescape();
 
   if (form == NULL) return nil;
-    
+
   if (form->type >= NUMBER && form->type <= STRING) return form;
 
   if (symbolp(form)) {
@@ -4846,7 +5141,7 @@ object *eval (object *form, object *env) {
     if (pair != NULL) return cdr(pair);
     pair = value(name, GlobalEnv);
     if (pair != NULL) return cdr(pair);
-    else if (name <= ENDFUNCTIONS) return form;
+    else if (name < ENDFUNCTIONS) return form;
     error(0, PSTR("undefined"), form);
   }
 
@@ -4858,13 +5153,14 @@ object *eval (object *form, object *env) {
 
   if (function == NULL) error(0, PSTR("illegal function"), nil);
   if (!listp(args)) error(0, PSTR("can't evaluate a dotted pair"), args);
-  
+
   // List starts with a symbol?
   if (symbolp(function)) {
     symbol_t name = function->name;
 
     if ((name == LET) || (name == LETSTAR)) {
       int TCstart = TC;
+      if (args == NULL) error2(name, noargument);
       object *assigns = first(args);
       if (!listp(assigns)) error(name, notalist, assigns);
       object *forms = cdr(args);
@@ -4907,9 +5203,9 @@ object *eval (object *form, object *env) {
       goto EVAL;
     }
 
-    if (name < SPECIAL_FORMS) error2(name, PSTR("can't be used as a function"));
+    if ((name < SPECIAL_FORMS) || ((name > KEYWORDS) && (name < USERFUNCTIONS))) error2(name, PSTR("can't be used as a function"));
   }
-        
+
   // Evaluate the parameters - result in head
   object *fname = car(form);
   int TCstart = TC;
@@ -4926,10 +5222,10 @@ object *eval (object *form, object *env) {
     form = cdr(form);
     nargs++;
   }
-    
+
   function = car(head);
   args = cdr(head);
- 
+
   if (symbolp(function)) {
     symbol_t name = function->name;
     if (name >= ENDFUNCTIONS) error(0, PSTR("not valid here"), fname);
@@ -4940,9 +5236,11 @@ object *eval (object *form, object *env) {
   }
 
   if (consp(function)) {
-    
+    symbol_t name = 0;
+    if (!listp(fname)) name = fname->name;
+
     if (issymbol(car(function), LAMBDA)) {
-      form = closure(TCstart, fname->name, NULL, cdr(function), args, &env);
+      form = closure(TCstart, name, NULL, cdr(function), args, &env);
       pop(GCStack);
       int trace = tracing(fname->name);
       if (trace) {
@@ -4961,7 +5259,7 @@ object *eval (object *form, object *env) {
 
     if (issymbol(car(function), CLOSURE)) {
       function = cdr(function);
-      form = closure(TCstart, fname->name, car(function), cdr(function), args, &env);
+      form = closure(TCstart, name, car(function), cdr(function), args, &env);
       pop(GCStack);
       TC = 1;
       goto EVAL;
@@ -5060,7 +5358,7 @@ void pinthex (uint32_t i, pfun_t pfun) {
   #endif
   for (uint32_t d=p; d>0; d=d/16) {
     uint32_t j = i/d;
-    if (j!=0 || lead || d==1) { pfun((j<10) ? j+'0' : j+'W'); lead=1;}  
+    if (j!=0 || lead || d==1) { pfun((j<10) ? j+'0' : j+'W'); lead=1;}
     i = i - j*d;
   }
 }
@@ -5090,7 +5388,7 @@ void pmantissa (float f, pfun_t pfun) {
     int d = (int)(i / mul);
     pfun(d + '0');
     i = i - d * mul;
-    if (i == 0) { 
+    if (i == 0) {
       if (!point) {
         for (int k=j; k<sig; k++) pfun('0');
         pfun('.'); pfun('0');
@@ -5113,9 +5411,9 @@ void pfloat (float f, pfun_t pfun) {
     e = floor(log(f) / 2.302585); // log10 gives wrong result
     f = f / pow(10, e);
   }
-  
+
   pmantissa (f, pfun);
-  
+
   // Exponent
   if (e != 0) {
     pfun('e');
@@ -5189,11 +5487,13 @@ int glibrary () {
   return (c != 0) ? c : -1; // -1?
 }
 
-void loadfromlibrary (object *env) {   
+void loadfromlibrary (object *env) {
   GlobalStringIndex = 0;
   object *line = read(glibrary);
   while (line != NULL) {
+    push(line, GCStack);
     eval(line, env);
+    pop(GCStack);
     line = read(glibrary);
   }
 }
@@ -5286,7 +5586,7 @@ void processkey (char c) {
 }
 
 int gserial () {
-  if (LastChar) { 
+  if (LastChar) {
     char temp = LastChar;
     LastChar = 0;
     return temp;
@@ -5309,8 +5609,6 @@ int gserial () {
 #endif
 }
 
-#define issp(x) (x == ' ' || x == '\n' || x == '\r' || x == '\t')
-
 object *nextitem (gfun_t gfun) {
   int ch = gfun();
   while(issp(ch)) ch = gfun();
@@ -5327,7 +5625,7 @@ object *nextitem (gfun_t gfun) {
 
   // Parse string
   if (ch == '"') return readstring('"', gfun);
-  
+
   // Parse symbol, character, or number
   int index = 0, base = 10, sign = 1;
   char *buffer = SymbolTop;
@@ -5384,7 +5682,7 @@ object *nextitem (gfun_t gfun) {
   int exponent = 0, esign = 1;
   buffer[2] = '\0'; buffer[3] = '\0'; buffer[4] = '\0'; buffer[5] = '\0'; // In case symbol is < 5 letters
   float divisor = 10.0;
-  
+
   while(!issp(ch) && ch != ')' && ch != '(' && index < bufmax) {
     buffer[index++] = ch;
     if (base == 10 && ch == '.' && !isexponent) {
@@ -5416,7 +5714,7 @@ object *nextitem (gfun_t gfun) {
   if (ch == ')' || ch == '(') LastChar = ch;
   if (isfloat && valid == 1) return makefloat(fresult * sign * pow(10, exponent * esign));
   else if (valid == 1) {
-    if (base == 10 && result > ((unsigned int)INT_MAX+(1-sign)/2)) 
+    if (base == 10 && result > ((unsigned int)INT_MAX+(1-sign)/2))
       return makefloat((float)result*sign);
     return number(result*sign);
   } else if (base == 0) {
@@ -5428,7 +5726,7 @@ object *nextitem (gfun_t gfun) {
     }
     error2(0, PSTR("unknown character"));
   }
-  
+
   int x = builtin(buffer);
   if (x == NIL) return nil;
   if (x < ENDFUNCTIONS) return newsymbol(x);
@@ -5466,7 +5764,7 @@ object *read (gfun_t gfun) {
   if (item == (object *)KET) error2(0, PSTR("incomplete list"));
   if (item == (object *)BRA) return readrest(gfun);
   if (item == (object *)DOT) return read(gfun);
-  if (item == (object *)QUO) return cons(symbol(QUOTE), cons(read(gfun), NULL)); 
+  if (item == (object *)QUO) return cons(symbol(QUOTE), cons(read(gfun), NULL));
   return item;
 }
 
@@ -5495,7 +5793,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 3.3 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 3.4 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -5511,7 +5809,7 @@ void repl (object *env) {
       pfstring(PSTR(" : "), pserial);
       pint(BreakLevel, pserial);
     }
-    pfstring(PSTR("> "), pserial);
+    pserial('>'); pserial(' ');
     object *line = read(gserial);
     if (BreakLevel && line == nil) { pln(pserial); return; }
     if (line == (object *)KET) error2(0, PSTR("unmatched right bracket"));
