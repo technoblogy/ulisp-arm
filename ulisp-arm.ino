@@ -1,5 +1,5 @@
-/* uLisp ARM Version 3.5 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 16th February 2021
+/* uLisp ARM Version 3.5a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 19th March 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -88,7 +88,7 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 400
-  #define CPU_ATSAMD51P20
+  #define CPU_ATSAMD51
 
 #elif defined(ARDUINO_SAMD_MKRZERO)
   #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
