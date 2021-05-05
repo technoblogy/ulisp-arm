@@ -1,5 +1,5 @@
-/* uLisp ARM Version 3.6 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 4th April 2021
+/* uLisp ARM Version 3.6b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 5th May 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -57,25 +57,29 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 #define RAMFUNC __attribute__ ((section (".ramfunctions")))
 #define MEMBANK
 
-#if defined(ARDUINO_ITSYBITSY_M0) || defined(ARDUINO_SAMD_FEATHER_M0_EXPRESS)
+#if defined(ARDUINO_GEMMA_M0) || defined(ARDUINO_SEEED_XIAO_M0)
   #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
+  #define EEPROMFLASH
+  #define FLASHSIZE 32768                 /* Bytes */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define CODESIZE 128                    /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_ATSAMD21
+  
+#elif defined(ARDUINO_ITSYBITSY_M0) || defined(ARDUINO_SAMD_FEATHER_M0_EXPRESS)
+  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define DATAFLASH
+  #define FLASHSIZE 2048000               /* 2 MBytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define CODESIZE 128                    /* Bytes */
   #define SDCARD_SS_PIN 4
   #define STACKDIFF 320
   #define CPU_ATSAMD21
 
-#elif defined(ARDUINO_GEMMA_M0)
-  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define CODESIZE 128                    /* Bytes */
-  #define STACKDIFF 320
-  #define CPU_ATSAMD21
-
 #elif defined(ARDUINO_METRO_M4) || defined(ARDUINO_ITSYBITSY_M4) || defined(ARDUINO_FEATHER_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
   #define WORKSPACESIZE (20480-SDSIZE)    /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
+  #define DATAFLASH
+  #define FLASHSIZE 2048000               /* 2 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define CODESIZE 256                    /* Bytes */
   #define SDCARD_SS_PIN 10
@@ -84,7 +88,8 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 
 #elif defined(ARDUINO_GRAND_CENTRAL_M4)
   #define WORKSPACESIZE (28672-SDSIZE)    /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 8192000           /* 8 MBytes */
+  #define DATAFLASH
+  #define FLASHSIZE 8192000               /* 8 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 400
@@ -92,6 +97,8 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 
 #elif defined(ARDUINO_SAMD_MKRZERO)
   #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define EEPROMFLASH
+  #define FLASHSIZE 32768                 /* Bytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define CODESIZE 128                    /* Bytes */
   #define STACKDIFF 840
@@ -99,6 +106,8 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 
 #elif defined(ARDUINO_SAMD_ZERO)          /* Put this last, otherwise overrides the Adafruit boards */
   #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define EEPROMFLASH
+  #define FLASHSIZE 32768                 /* Bytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define CODESIZE 128                    /* Bytes */
   #define SDCARD_SS_PIN 10
@@ -135,7 +144,8 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 
 #elif defined(ARDUINO_NRF52840_ITSYBITSY) || defined(ARDUINO_NRF52840_CLUE)
   #define WORKSPACESIZE (20992-SDSIZE)    /* Objects (8*bytes) */
-  #define DATAFLASHSIZE 2048000           /* 2 MBytes */
+  #define DATAFLASH
+  #define FLASHSIZE 2048000               /* 2 MBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 1200
@@ -260,7 +270,6 @@ typedef struct {
 
 typedef int (*gfun_t)();
 typedef void (*pfun_t)(char);
-typedef int PinMode;
 
 enum function { NIL, TEE, NOTHING, OPTIONAL, INITIALELEMENT, ELEMENTTYPE, BIT, AMPREST, LAMBDA, LET,
 LETSTAR, CLOSURE, SPECIAL_FORMS, QUOTE, OR, DEFUN, DEFVAR, SETQ, LOOP, RETURN, PUSH, POP, INCF, DECF,
@@ -600,11 +609,17 @@ char *MakeFilename (object *arg) {
 // Save-image and load-image
 
 #if defined(sdcardsupport)
-void SDWriteInt (File file, int data) {
+void SDWrite32 (File file, int data) {
   file.write(data & 0xFF); file.write(data>>8 & 0xFF);
   file.write(data>>16 & 0xFF); file.write(data>>24 & 0xFF);
 }
-#elif defined(DATAFLASHSIZE)
+
+int SDRead32 (File file) {
+  uintptr_t b0 = file.read(); uintptr_t b1 = file.read();
+  uintptr_t b2 = file.read(); uintptr_t b3 = file.read();
+  return b0 | b1<<8 | b2<<16 | b3<<24;
+}
+#elif defined(DATAFLASH)
 // Winbond DataFlash support for Adafruit M4 Express boards
 #define PAGEPROG      0x02
 #define READSTATUS    0x05
@@ -620,68 +635,19 @@ const int sck = 38, ssel = 39, mosi = 37, miso = 36;
 const int sck = PIN_QSPI_SCK, ssel = PIN_QSPI_CS, mosi = PIN_QSPI_IO0, miso = PIN_QSPI_IO1;
 #endif
 
-boolean FlashSetup () {
-  uint8_t manID, devID;
-  digitalWrite(ssel, HIGH); pinMode(ssel, OUTPUT);
-  pinMode(sck, OUTPUT);
-  pinMode(mosi, OUTPUT);
-  pinMode(miso, INPUT);
-  digitalWrite(sck, LOW); digitalWrite(mosi, HIGH);
-  digitalWrite(ssel, LOW);
-  FlashWrite(READID);
-  for(uint8_t i=0; i<4; i++) manID = FlashRead();
-  devID = FlashRead();
-  digitalWrite(ssel, HIGH);
-  return (devID == 0x14 || devID == 0x15 || devID == 0x16); // Found correct device
+void FlashBusy () {
+  digitalWrite(ssel, 0);
+  FlashWrite(READSTATUS);
+  while (FlashReadByte() & 1 != 0);
+  digitalWrite(ssel, 1);
 }
 
 inline void FlashWrite (uint8_t data) {
   shiftOut(mosi, sck, MSBFIRST, data);
 }
 
-void FlashBusy () {
-  digitalWrite(ssel, 0);
-  FlashWrite(READSTATUS);
-  while (FlashRead() & 1 != 0);
-  digitalWrite(ssel, 1);
-}
-
-void FlashWriteEnable () {
-  digitalWrite(ssel, 0);
-  FlashWrite(WRITEENABLE);
-  digitalWrite(ssel, 1);
-}
-
-void FlashBeginRead () {
-  FlashBusy();
-  digitalWrite(ssel, 0);
-  FlashWrite(READDATA);
-  FlashWrite(0); FlashWrite(0); FlashWrite(0);
-}
-
-inline uint8_t FlashRead () {
-  int data;
-  return shiftIn(miso, sck, MSBFIRST);
-}
-
-inline void FlashEndRead(void) {
-  digitalWrite(ssel, 1);
-}
-
-void FlashBeginWrite (int blocks) {
-  // Erase 64K
-  for (int b=0; b<blocks; b++) {
-    FlashWriteEnable();
-    digitalWrite(ssel, 0);
-    FlashWrite(BLOCK64K);
-    FlashWrite(b); FlashWrite(0); FlashWrite(0);
-    digitalWrite(ssel, 1);
-    FlashBusy();
-  }
-}
-
 inline uint8_t FlashReadByte () {
-  return FlashRead();
+  return shiftIn(miso, sck, MSBFIRST);
 }
 
 void FlashWriteByte (uint32_t *addr, uint8_t data) {
@@ -700,14 +666,127 @@ void FlashWriteByte (uint32_t *addr, uint8_t data) {
   (*addr)++;
 }
 
-inline void FlashEndWrite (void) {
+void FlashWriteEnable () {
+  digitalWrite(ssel, 0);
+  FlashWrite(WRITEENABLE);
+  digitalWrite(ssel, 1);
+}
+
+boolean FlashCheck () {
+  uint8_t manID, devID;
+  digitalWrite(ssel, HIGH); pinMode(ssel, OUTPUT);
+  pinMode(sck, OUTPUT);
+  pinMode(mosi, OUTPUT);
+  pinMode(miso, INPUT);
+  digitalWrite(sck, LOW); digitalWrite(mosi, HIGH);
+  digitalWrite(ssel, LOW);
+  FlashWrite(READID);
+  for(uint8_t i=0; i<4; i++) manID = FlashReadByte();
+  devID = FlashReadByte();
+  digitalWrite(ssel, HIGH);
+  return (devID == 0x14 || devID == 0x15 || devID == 0x16); // true = found correct device
+}
+
+void FlashBeginWrite (uint32_t *addr, uint32_t bytes) {
+  (void) addr;
+  uint32_t blocks = (bytes+65535)/65536;
+  // Erase 64K
+  for (int b=0; b<blocks; b++) {
+    FlashWriteEnable();
+    digitalWrite(ssel, 0);
+    FlashWrite(BLOCK64K);
+    FlashWrite(b); FlashWrite(0); FlashWrite(0);
+    digitalWrite(ssel, 1);
+    FlashBusy();
+  }
+}
+
+void FlashWrite32 (uint32_t *addr, uint32_t data) {
+  FlashWriteByte(addr, data & 0xFF); FlashWriteByte(addr, data>>8 & 0xFF);
+  FlashWriteByte(addr, data>>16 & 0xFF); FlashWriteByte(addr, data>>24 & 0xFF);
+}
+
+inline void FlashEndWrite (uint32_t *addr) {
+  (void) addr;
   digitalWrite(ssel, 1);
   FlashBusy();
 }
 
-void FlashWriteInt (uint32_t *addr, int data) {
-  FlashWriteByte(addr, data & 0xFF); FlashWriteByte(addr, data>>8 & 0xFF);
-  FlashWriteByte(addr, data>>16 & 0xFF); FlashWriteByte(addr, data>>24 & 0xFF);
+void FlashBeginRead (uint32_t *addr) {
+  (void) addr;
+  FlashBusy();
+  digitalWrite(ssel, 0);
+  FlashWrite(READDATA);
+  FlashWrite(0); FlashWrite(0); FlashWrite(0);
+}
+
+uint32_t FlashRead32 (uint32_t *addr) {
+  (void) addr;
+  uint8_t b0 = FlashReadByte(); uint8_t b1 = FlashReadByte();
+  uint8_t b2 = FlashReadByte(); uint8_t b3 = FlashReadByte();
+  return b0 | b1<<8 | b2<<16 | b3<<24;
+}
+
+inline void FlashEndRead(uint32_t *addr) {
+  (void) addr;
+  digitalWrite(ssel, 1);
+}
+
+#elif defined(EEPROMFLASH)
+// For ATSAMD21
+__attribute__((__aligned__(256))) static const uint8_t flash_store[FLASHSIZE] = { };
+
+void row_erase (const volatile void *addr) {
+  NVMCTRL->ADDR.reg = ((uint32_t)addr) / 2;
+  NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_ER;
+  while (!NVMCTRL->INTFLAG.bit.READY);
+}
+
+void page_clear () {
+  // Execute "PBC" Page Buffer Clear
+  NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_PBC;
+  while (NVMCTRL->INTFLAG.bit.READY == 0);
+}
+
+void page_write () {
+  NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_WP;
+  while (NVMCTRL->INTFLAG.bit.READY == 0);
+}
+
+boolean FlashCheck() {
+  return true;
+}
+
+void FlashBeginWrite(uint32_t *addr, uint32_t bytes) {
+  (void) bytes;
+  *addr = (uint32_t)flash_store;
+  // Disable automatic page write
+  NVMCTRL->CTRLB.bit.MANW = 1;
+}
+
+void FlashWrite32 (uint32_t *addr, uint32_t data) {
+  if (((*addr) & 0xFF) == 0) row_erase((const volatile void *)(*addr));
+  if (((*addr) & 0x3F) == 0) page_clear();
+  *(volatile uint32_t *)(*addr) = data;
+  (*addr) = (*addr) + 4;
+  if (((*addr) & 0x3F) == 0) page_write();
+}
+
+void FlashEndWrite (uint32_t *addr) {
+  if (((*addr) & 0x3F) != 0) page_write();
+}
+
+void FlashBeginRead(uint32_t *addr) {
+  *addr = (uint32_t)flash_store;
+}
+
+uint32_t FlashRead32 (uint32_t *addr) {
+  uint32_t data = *(volatile const uint32_t *)(*addr);
+  (*addr) = (*addr) + 4;
+  return data;
+}
+
+void FlashEndRead (uint32_t *addr) {
 }
 #endif
 
@@ -739,31 +818,39 @@ int saveimage (object *arg) {
   }
   file.close();
   return imagesize;
-#elif defined(DATAFLASHSIZE)
+#elif defined(DATAFLASH) || defined(EEPROMFLASH)
   unsigned int imagesize = compactimage(&arg);
   if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, invalidarg, arg);
-  if (!FlashSetup()) error2(SAVEIMAGE, PSTR("no DataFlash found."));
-  // Save to DataFlash
-  int SymbolUsed = SymbolTop - SymbolTable;
-  int bytesneeded = 20 + SymbolUsed + CODESIZE + imagesize*8;
-  if (bytesneeded > DATAFLASHSIZE) error(SAVEIMAGE, PSTR("image too large"), number(imagesize));
-  uint32_t addr = 0;
-  FlashBeginWrite((bytesneeded+65535)/65536);
-  FlashWriteInt(&addr, (uintptr_t)arg);
-  FlashWriteInt(&addr, imagesize);
-  FlashWriteInt(&addr, (uintptr_t)GlobalEnv);
-  FlashWriteInt(&addr, (uintptr_t)GCStack);
+  if (!FlashCheck()) error2(SAVEIMAGE, PSTR("flash not available"));
+  // Save to flash
+  uint32_t SymbolUsed = SymbolTop - SymbolTable;
+  uint32_t bytesneeded = 20 + SymbolUsed + CODESIZE + imagesize*8;
+  if (bytesneeded > FLASHSIZE) error(SAVEIMAGE, PSTR("image too large"), number(imagesize));
+  uint32_t addr;
+  FlashBeginWrite(&addr, bytesneeded);
+  FlashWrite32(&addr, (uintptr_t)arg);
+  FlashWrite32(&addr, imagesize);
+  FlashWrite32(&addr, (uintptr_t)GlobalEnv);
+  FlashWrite32(&addr, (uintptr_t)GCStack);
   #if SYMBOLTABLESIZE > BUFFERSIZE
-  FlashWriteInt(&addr, (uintptr_t)SymbolTop);
-  for (int i=0; i<SymbolUsed; i++) FlashWriteByte(&addr, SymbolTable[i]);
+  FlashWrite32(&addr, (uintptr_t)SymbolTop);
+  for (int i=0; i<(SymbolUsed+3)/4; i=i+4) {
+    union { uint32_t u32; uint8_t u8[4]; };
+    u8[0] = SymbolTable[i]; u8[1] = SymbolTable[i+1]; u8[2] = SymbolTable[i+2]; u8[3] = SymbolTable[i+3];
+    FlashWrite32(&addr, u32);
+  }
   #endif
-  for (int i=0; i<CODESIZE; i++) FlashWriteByte(&addr, MyCode[i]);
+  for (int i=0; i<CODESIZE; i=i+4) {
+    union { uint32_t u32; uint8_t u8[4]; };
+    u8[0] = MyCode[i]; u8[1] = MyCode[i+1]; u8[2] = MyCode[i+2]; u8[3] = MyCode[i+3];
+    FlashWrite32(&addr, u32);
+  }
   for (unsigned int i=0; i<imagesize; i++) {
     object *obj = &Workspace[i];
-    FlashWriteInt(&addr, (uintptr_t)car(obj));
-    FlashWriteInt(&addr, (uintptr_t)cdr(obj));
+    FlashWrite32(&addr, (uintptr_t)car(obj));
+    FlashWrite32(&addr, (uintptr_t)cdr(obj));
   }
-  FlashEndWrite();
+  FlashEndWrite(&addr);
   return imagesize;
 #else
   (void) arg;
@@ -771,20 +858,6 @@ int saveimage (object *arg) {
   return 0;
 #endif
 }
-
-#if defined(sdcardsupport)
-int SDReadInt (File file) {
-  uintptr_t b0 = file.read(); uintptr_t b1 = file.read();
-  uintptr_t b2 = file.read(); uintptr_t b3 = file.read();
-  return b0 | b1<<8 | b2<<16 | b3<<24;
-}
-#elif defined(DATAFLASHSIZE)
-int FlashReadInt () {
-  uint8_t b0 = FlashReadByte(); uint8_t b1 = FlashReadByte();
-  uint8_t b2 = FlashReadByte(); uint8_t b3 = FlashReadByte();
-  return b0 | b1<<8 | b2<<16 | b3<<24;
-}
-#endif
 
 int loadimage (object *arg) {
 #if defined(sdcardsupport)
@@ -812,27 +885,36 @@ int loadimage (object *arg) {
   file.close();
   gc(NULL, NULL);
   return imagesize;
-#elif defined(DATAFLASHSIZE)
-  if (!FlashSetup()) error2(LOADIMAGE, PSTR("no DataFlash found."));
-  FlashBeginRead();
-  FlashReadInt(); // Skip eval address
-  unsigned int imagesize = FlashReadInt();
+#elif defined(DATAFLASH) || defined(EEPROMFLASH)
+  if (!FlashCheck()) error2(LOADIMAGE, PSTR("flash not available"));
+  uint32_t addr;
+  FlashBeginRead(&addr);
+  FlashRead32(&addr); // Skip eval address
+  uint32_t imagesize = FlashRead32(&addr);
   if (imagesize == 0 || imagesize == 0xFFFFFFFF) error2(LOADIMAGE, PSTR("no saved image"));
-  GlobalEnv = (object *)FlashReadInt();
-  GCStack = (object *)FlashReadInt();
+  GlobalEnv = (object *)FlashRead32(&addr);
+  GCStack = (object *)FlashRead32(&addr);
   #if SYMBOLTABLESIZE > BUFFERSIZE
-  SymbolTop = (char *)FlashReadInt();
+  SymbolTop = (char *)FlashRead32(&addr);
   int SymbolUsed = SymbolTop - SymbolTable;
-  for (int i=0; i<SymbolUsed; i++) SymbolTable[i] = FlashReadByte();
-  #endif
-  for (int i=0; i<CODESIZE; i++) MyCode[i] = FlashReadByte();
-  for (unsigned int i=0; i<imagesize; i++) {
-    object *obj = &Workspace[i];
-    car(obj) = (object *)FlashReadInt();
-    cdr(obj) = (object *)FlashReadInt();
+  for (int i=0; i<(SymbolUsed+3)/4; i=i+4) {
+    union { uint32_t u32; uint8_t u8[4]; };
+    u32 = FlashRead32(&addr);
+    SymbolTable[i] = u8[0]; SymbolTable[i+1] = u8[1]; SymbolTable[i+2] = u8[2]; SymbolTable[i+3] = u8[3];
   }
+  #endif
+  for (int i=0; i<CODESIZE; i=i+4) {
+    union { uint32_t u32; uint8_t u8[4]; };
+    u32 = FlashRead32(&addr);
+    MyCode[i] = u8[0]; MyCode[i+1] = u8[1]; MyCode[i+2] = u8[2]; MyCode[i+3] = u8[3];
+  }
+  for (uint32_t i=0; i<imagesize; i++) {
+    object *obj = &Workspace[i];
+    car(obj) = (object *)FlashRead32(&addr);
+    cdr(obj) = (object *)FlashRead32(&addr);
+  }
+  FlashEndRead(&addr);
   gc(NULL, NULL);
-  FlashEndRead();
   return imagesize;
 #else
   (void) arg;
@@ -852,11 +934,12 @@ void autorunimage () {
     loadimage(NULL);
     apply(0, autorun, NULL, NULL);
   }
-#elif defined(DATAFLASHSIZE)
-  if (!FlashSetup()) error2(0, PSTR("no DataFlash found."));
-  FlashBeginRead();
-  object *autorun = (object *)FlashReadInt();
-  FlashEndRead();
+#elif defined(DATAFLASH) || defined(EEPROMFLASH)
+  if (!FlashCheck()) error2(0, PSTR("flash not available"));
+  uint32_t addr;
+  FlashBeginRead(&addr);
+  object *autorun = (object *)FlashRead32(&addr);
+  FlashEndRead(&addr);
   if (autorun != NULL && (unsigned int)autorun != 0xFFFFFFFF) {
     loadimage(nil);
     apply(0, autorun, NULL, NULL);
@@ -3950,9 +4033,9 @@ object *fn_cls (object *args, object *env) {
 object *fn_pinmode (object *args, object *env) {
   (void) env;
   int pin = checkinteger(PINMODE, first(args));
-  PinMode pm = INPUT;
+  int pm = INPUT;
   object *arg = second(args);
-  if (keywordp(arg)) pm = (PinMode)checkkeyword(PINMODE, arg);
+  if (keywordp(arg)) pm = checkkeyword(PINMODE, arg);
   else if (integerp(arg)) {
     int mode = arg->integer;
     if (mode == 1) pm = OUTPUT; else if (mode == 2) pm = INPUT_PULLUP;
