@@ -179,6 +179,13 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #undef MEMBANK
   #define MEMBANK DMAMEM
 
+#elif defined(XMC4700_F144x2048)
+  #define WORKSPACESIZE 32768            /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512            /* Bytes */
+  #define CODESIZE 128                   /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_XMC4700_F144x2048
+
 #else
 #error "Board not supported!"
 #endif
@@ -310,6 +317,8 @@ K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_OUTPUT_OPENDRAIN,
 #elif defined(CPU_MAX32620)
 K_INPUT, K_INPUT_PULLUP, K_OUTPUT, K_DEFAULT, K_EXTERNAL,
+#elif defined(CPU_XMC4700_F144x2048)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT,
 #endif
 USERFUNCTIONS, ENDFUNCTIONS };
 
@@ -1798,6 +1807,8 @@ void checkanalogread (int pin) {
   if (!((pin>=14 && pin<=27))) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(XMC4700_Relax_Kit)
+  if (!(pin>=17 && pin<=22)) error(ANALOGREAD, invalidpin, number(pin));
 #endif
 }
 
@@ -1838,6 +1849,8 @@ void checkanalogwrite (int pin) {
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || (pin>=33 && pin<=39))) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || pin==33 || (pin>=36 && pin<=37))) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(XMC4700_Relax_Kit)
+  if (!(pin==3 || pin==5 || pin==6 || pin==9 || pin==10 || pin==11)) error(ANALOGWRITE, invalidpin, number(pin));
 #endif
 }
 
@@ -4080,7 +4093,7 @@ object *fn_analogread (object *args, object *env) {
 object *fn_analogreference (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(XMC4700_F144x2048)
   error2(ANALOGREFERENCE, PSTR("not supported"));
   #else
   analogReference((eAnalogReference)checkkeyword(ANALOGREFERENCE, arg));
@@ -4827,6 +4840,12 @@ const char string217[] PROGMEM = ":output";
 const char string218[] PROGMEM = ":default";
 const char string219[] PROGMEM = ":external";
 const char string220[] PROGMEM = "";
+#elif defined(CPU_XMC4700_F144x2048)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = "";
 #endif
 
 // Insert your own function names here
@@ -5125,6 +5144,12 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string218, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
   { string219, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
   { string220, NULL, 0x00 },
+#elif defined(CPU_XMC4700_F144x2048)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, NULL, 0x00 },
 #endif
 
 // Insert your own table entries here
