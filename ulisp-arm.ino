@@ -179,6 +179,13 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #undef MEMBANK
   #define MEMBANK DMAMEM
 
+#elif defined(XMC4700_F144x2048)
+  #define WORKSPACESIZE 32768            /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 512            /* Bytes */
+  #define CODESIZE 128                   /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_XMC4700_F144x2048
+
 #else
 #error "Board not supported!"
 #endif
@@ -4080,7 +4087,7 @@ object *fn_analogread (object *args, object *env) {
 object *fn_analogreference (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(XMC4700_F144x2048)
   error2(ANALOGREFERENCE, PSTR("not supported"));
   #else
   analogReference((eAnalogReference)checkkeyword(ANALOGREFERENCE, arg));
