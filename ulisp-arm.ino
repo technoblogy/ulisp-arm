@@ -317,6 +317,8 @@ K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_OUTPUT_OPENDRAIN,
 #elif defined(CPU_MAX32620)
 K_INPUT, K_INPUT_PULLUP, K_OUTPUT, K_DEFAULT, K_EXTERNAL,
+#elif defined(CPU_XMC4700_F144x2048)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT,
 #endif
 USERFUNCTIONS, ENDFUNCTIONS };
 
@@ -4834,6 +4836,12 @@ const char string217[] PROGMEM = ":output";
 const char string218[] PROGMEM = ":default";
 const char string219[] PROGMEM = ":external";
 const char string220[] PROGMEM = "";
+#elif defined(CPU_XMC4700_F144x2048)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = "";
 #endif
 
 // Insert your own function names here
@@ -5132,6 +5140,12 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string218, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
   { string219, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
   { string220, NULL, 0x00 },
+#elif defined(CPU_XMC4700_F144x2048)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, NULL, 0x00 },
 #endif
 
 // Insert your own table entries here
