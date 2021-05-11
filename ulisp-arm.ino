@@ -1807,6 +1807,8 @@ void checkanalogread (int pin) {
   if (!((pin>=14 && pin<=27))) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(XMC4700_Relax_Kit)
+  if (!(pin>=17 && pin<=22)) error(ANALOGREAD, invalidpin, number(pin));
 #endif
 }
 
@@ -1847,6 +1849,8 @@ void checkanalogwrite (int pin) {
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || (pin>=33 && pin<=39))) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || pin==33 || (pin>=36 && pin<=37))) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(XMC4700_Relax_Kit)
+  if (!(pin==3 || pin==5 || pin==6 || pin==9 || pin==10 || pin==11)) error(ANALOGWRITE, invalidpin, number(pin));
 #endif
 }
 
