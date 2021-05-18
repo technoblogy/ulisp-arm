@@ -1,5 +1,5 @@
-/* uLisp ARM Version 3.6b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 5th May 2021
+/* uLisp ARM Version 3.6c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 18th May 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -179,6 +179,13 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #undef MEMBANK
   #define MEMBANK DMAMEM
 
+#elif defined(ARDUINO_RASPBERRY_PI_PICO)    /* NANO_RP2040_CONNECT */
+  #define WORKSPACESIZE (15360-SDSIZE)    /* Objects (8*bytes) */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_RP2040
+
 #else
 #error "Board not supported!"
 #endif
@@ -310,6 +317,8 @@ K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_OUTPUT_OPENDRAIN,
 #elif defined(CPU_MAX32620)
 K_INPUT, K_INPUT_PULLUP, K_OUTPUT, K_DEFAULT, K_EXTERNAL,
+#elif defined(CPU_RP2040)
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT,
 #endif
 USERFUNCTIONS, ENDFUNCTIONS };
 
@@ -483,6 +492,13 @@ object *stream (uint8_t streamtype, uint8_t address) {
   object *ptr = myalloc();
   ptr->type = STREAM;
   ptr->integer = streamtype<<8 | address;
+  return ptr;
+}
+
+object *newstring () {
+  object *ptr = myalloc();
+  ptr->type = STRING;
+  ptr->chars = 0;
   return ptr;
 }
 
@@ -801,20 +817,20 @@ int saveimage (object *arg) {
   } else if (arg == NULL || listp(arg)) file = SD.open("ULISP.IMG", O_RDWR | O_CREAT | O_TRUNC);
   else error(SAVEIMAGE, invalidarg, arg);
   if (!file) error2(SAVEIMAGE, PSTR("problem saving to SD card"));
-  SDWriteInt(file, (uintptr_t)arg);
-  SDWriteInt(file, imagesize);
-  SDWriteInt(file, (uintptr_t)GlobalEnv);
-  SDWriteInt(file, (uintptr_t)GCStack);
+  SDWrite32(file, (uintptr_t)arg);
+  SDWrite32(file, imagesize);
+  SDWrite32(file, (uintptr_t)GlobalEnv);
+  SDWrite32(file, (uintptr_t)GCStack);
   #if SYMBOLTABLESIZE > BUFFERSIZE
-  SDWriteInt(file, (uintptr_t)SymbolTop);
+  SDWrite32(file, (uintptr_t)SymbolTop);
   int SymbolUsed = SymbolTop - SymbolTable;
   for (int i=0; i<SymbolUsed; i++) file.write(SymbolTable[i]);
   #endif
   for (int i=0; i<CODESIZE; i++) file.write(MyCode[i]);
   for (unsigned int i=0; i<imagesize; i++) {
     object *obj = &Workspace[i];
-    SDWriteInt(file, (uintptr_t)car(obj));
-    SDWriteInt(file, (uintptr_t)cdr(obj));
+    SDWrite32(file, (uintptr_t)car(obj));
+    SDWrite32(file, (uintptr_t)cdr(obj));
   }
   file.close();
   return imagesize;
@@ -867,20 +883,20 @@ int loadimage (object *arg) {
   else if (arg == NULL) file = SD.open("/ULISP.IMG");
   else error(LOADIMAGE, PSTR("illegal argument"), arg);
   if (!file) error2(LOADIMAGE, PSTR("problem loading from SD card"));
-  SDReadInt(file);
-  unsigned int imagesize = SDReadInt(file);
-  GlobalEnv = (object *)SDReadInt(file);
-  GCStack = (object *)SDReadInt(file);
+  SDRead32(file);
+  unsigned int imagesize = SDRead32(file);
+  GlobalEnv = (object *)SDRead32(file);
+  GCStack = (object *)SDRead32(file);
   #if SYMBOLTABLESIZE > BUFFERSIZE
-  SymbolTop = (char *)SDReadInt(file);
+  SymbolTop = (char *)SDRead32(file);
   int SymbolUsed = SymbolTop - SymbolTable;
   for (int i=0; i<SymbolUsed; i++) SymbolTable[i] = file.read();
   #endif
   for (int i=0; i<CODESIZE; i++) MyCode[i] = file.read();
   for (unsigned int i=0; i<imagesize; i++) {
     object *obj = &Workspace[i];
-    car(obj) = (object *)SDReadInt(file);
-    cdr(obj) = (object *)SDReadInt(file);
+    car(obj) = (object *)SDRead32(file);
+    cdr(obj) = (object *)SDRead32(file);
   }
   file.close();
   gc(NULL, NULL);
@@ -928,7 +944,7 @@ void autorunimage () {
   SD.begin(SDCARD_SS_PIN);
   File file = SD.open("ULISP.IMG");
   if (!file) error2(0, PSTR("problem autorunning from SD card"));
-  object *autorun = (object *)SDReadInt(file);
+  object *autorun = (object *)SDRead32(file);
   file.close();
   if (autorun != NULL) {
     loadimage(NULL);
@@ -1322,21 +1338,20 @@ void indent (uint8_t spaces, char ch, pfun_t pfun) {
 }
 
 object *startstring (symbol_t name) {
-  object *string = myalloc();
-  string->type = STRING;
-  GlobalString = NULL;
+  object *string = newstring();
+  GlobalString = string;
   GlobalStringIndex = 0;
   return string;
 }
 
-void buildstring (uint8_t ch, int *chars, object **head) {
+void buildstring (uint8_t ch, object *string, int *chars) {
   static object* tail;
   static uint8_t shift;
   if (*chars == 0) {
     shift = (sizeof(int)-1)*8;
     *chars = ch<<shift;
     object *cell = myalloc();
-    if (*head == NULL) *head = cell; else tail->car = cell;
+    if (cdr(string) == NULL) cdr(string) = cell; else tail->car = cell;
     cell->car = NULL;
     cell->chars = *chars;
     tail = cell;
@@ -1349,18 +1364,15 @@ void buildstring (uint8_t ch, int *chars, object **head) {
 }
 
 object *readstring (uint8_t delim, gfun_t gfun) {
-  object *obj = myalloc();
-  obj->type = STRING;
+  object *obj = newstring();
   int ch = gfun();
   if (ch == -1) return nil;
-  object *head = NULL;
   int chars = 0;
   while ((ch != delim) && (ch != -1)) {
     if (ch == '\\') ch = gfun();
-    buildstring(ch, &chars, &head);
+    buildstring(ch, obj, &chars);
     ch = gfun();
   }
-  obj->cdr = head;
   return obj;
 }
 
@@ -1402,7 +1414,7 @@ int gstr () {
 }
 
 void pstr (char c) {
-  buildstring(c, &GlobalStringIndex, &GlobalString);
+  buildstring(c, GlobalString, &GlobalStringIndex);
 }
 
 // Lookup variable in environment
@@ -1798,6 +1810,8 @@ void checkanalogread (int pin) {
   if (!((pin>=14 && pin<=27))) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_RASPBERRY_PI_PICO)
+  if (!(pin>=26 && pin<=29)) error(ANALOGREAD, invalidpin, number(pin));
 #endif
 }
 
@@ -1838,6 +1852,8 @@ void checkanalogwrite (int pin) {
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || (pin>=33 && pin<=39))) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || pin==33 || (pin>=36 && pin<=37))) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_RASPBERRY_PI_PICO)
+  if (!(pin>=0 && pin<=29)) error(ANALOGWRITE, invalidpin, number(pin));
 #endif
 }
 
@@ -1846,7 +1862,7 @@ void checkanalogwrite (int pin) {
 const int scale[] PROGMEM = {4186,4435,4699,4978,5274,5588,5920,6272,6645,7040,7459,7902};
 
 void playnote (int pin, int note, int octave) {
-#if defined(ARDUINO_NRF52840_CLUE)
+#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_RASPBERRY_PI_PICO)
   int prescaler = 8 - octave - note/12;
   if (prescaler<0 || prescaler>8) error(NOTE, PSTR("octave out of range"), number(prescaler));
   tone(pin, scale[note%12]>>prescaler);
@@ -1854,7 +1870,7 @@ void playnote (int pin, int note, int octave) {
 }
 
 void nonote (int pin) {
-#if defined(ARDUINO_NRF52840_CLUE)
+#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_RASPBERRY_PI_PICO)
   noTone(pin);
 #endif
 }
@@ -2398,10 +2414,10 @@ object *sp_withoutputtostring (object *args, object *env) {
   object *pair = cons(var, stream(STRINGSTREAM, 0));
   push(pair,env);
   object *string = startstring(WITHOUTPUTTOSTRING);
+  push(string, GCStack);
   object *forms = cdr(args);
   eval(tf_progn(forms,env), env);
-  string->cdr = GlobalString;
-  GlobalString = NULL;
+  pop(GCStack);
   return string;
 }
 
@@ -3702,8 +3718,7 @@ object *fn_stringfn (object *args, object *env) {
   object *arg = first(args);
   int type = arg->type;
   if (type == STRING) return arg;
-  object *obj = myalloc();
-  obj->type = STRING;
+  object *obj = newstring();
   if (type == CHARACTER) {
     object *cell = myalloc();
     cell->car = NULL;
@@ -3713,14 +3728,12 @@ object *fn_stringfn (object *args, object *env) {
   } else if (type == SYMBOL) {
     char *s = symbolname(arg->name);
     char ch = *s++;
-    object *head = NULL;
     int chars = 0;
     while (ch) {
       if (ch == '\\') ch = *s++;
-      buildstring(ch, &chars, &head);
+      buildstring(ch, arg, &chars);
       ch = *s++;
     }
-    obj->cdr = head;
   } else error(STRINGFN, PSTR("can't convert to string"), arg);
   return obj;
 }
@@ -3730,9 +3743,7 @@ object *fn_concatenate (object *args, object *env) {
   object *arg = first(args);
   if (arg->name != STRINGFN) error2(CONCATENATE, PSTR("only supports strings"));
   args = cdr(args);
-  object *result = myalloc();
-  result->type = STRING;
-  object *head = NULL;
+  object *result = newstring();
   int chars = 0;
   while (args != NULL) {
     object *obj = first(args);
@@ -3742,14 +3753,13 @@ object *fn_concatenate (object *args, object *env) {
       int quad = obj->chars;
       while (quad != 0) {
          char ch = quad>>((sizeof(int)-1)*8) & 0xFF;
-         buildstring(ch, &chars, &head);
+         buildstring(ch, result, &chars);
          quad = quad<<8;
       }
       obj = car(obj);
     }
     args = cdr(args);
   }
-  result->cdr = head;
   return result;
 }
 
@@ -3762,16 +3772,13 @@ object *fn_subseq (object *args, object *env) {
   int end;
   args = cddr(args);
   if (args != NULL) end = checkinteger(SUBSEQ, car(args)); else end = stringlength(arg);
-  object *result = myalloc();
-  result->type = STRING;
-  object *head = NULL;
+  object *result = newstring();
   int chars = 0;
   for (int i=start; i<end; i++) {
     char ch = nthchar(arg, i);
     if (ch == 0) error2(SUBSEQ, PSTR("index out of range"));
-    buildstring(ch, &chars, &head);
+    buildstring(ch, result, &chars);
   }
-  result->cdr = head;
   return result;
 }
 
@@ -3789,7 +3796,6 @@ object *fn_princtostring (object *args, object *env) {
   object *arg = first(args);
   object *obj = startstring(PRINCTOSTRING);
   prin1object(arg, pstr);
-  obj->cdr = GlobalString;
   return obj;
 }
 
@@ -3798,7 +3804,6 @@ object *fn_prin1tostring (object *args, object *env) {
   object *arg = first(args);
   object *obj = startstring(PRIN1TOSTRING);
   printobject(arg, pstr);
-  obj->cdr = GlobalString;
   return obj;
 }
 
@@ -4080,7 +4085,7 @@ object *fn_analogread (object *args, object *env) {
 object *fn_analogreference (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620)
+  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(ARDUINO_RASPBERRY_PI_PICO)
   error2(ANALOGREFERENCE, PSTR("not supported"));
   #else
   analogReference((eAnalogReference)checkkeyword(ANALOGREFERENCE, arg));
@@ -4298,7 +4303,7 @@ object *fn_format (object *args, object *env) {
     }
     n++;
   }
-  if (output == nil) { obj->cdr = GlobalString; return obj; }
+  if (output == nil) return obj;
   else return nil;
 }
 
@@ -4827,6 +4832,12 @@ const char string217[] PROGMEM = ":output";
 const char string218[] PROGMEM = ":default";
 const char string219[] PROGMEM = ":external";
 const char string220[] PROGMEM = "";
+#elif defined(CPU_RP2040)
+const char string215[] PROGMEM = ":input";
+const char string216[] PROGMEM = ":input-pullup";
+const char string217[] PROGMEM = ":input-pulldown";
+const char string218[] PROGMEM = ":output";
+const char string219[] PROGMEM = "";
 #endif
 
 // Insert your own function names here
@@ -5125,6 +5136,12 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string218, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
   { string219, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
   { string220, NULL, 0x00 },
+#elif defined(CPU_RP2040)
+  { string215, (fn_ptr_type)INPUT, PINMODE },
+  { string216, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string217, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string218, (fn_ptr_type)OUTPUT, PINMODE },
+  { string219, NULL, 0x00 },
 #endif
 
 // Insert your own table entries here
@@ -5881,7 +5898,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 3.6 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 3.7 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
