@@ -1,4 +1,4 @@
-/* uLisp ARM Version 3.6c - www.ulisp.com
+/* uLisp ARM Version 3.6d - www.ulisp.com
    David Johnson-Davies - www.technoblogy.com - 18th May 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
@@ -181,6 +181,8 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 
 #elif defined(ARDUINO_RASPBERRY_PI_PICO)    /* NANO_RP2040_CONNECT */
   #define WORKSPACESIZE (15360-SDSIZE)    /* Objects (8*bytes) */
+  #define BLOCKDEVICE
+  #define FLASHSIZE 262144                /* 256 KBytes */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 320
@@ -804,6 +806,15 @@ uint32_t FlashRead32 (uint32_t *addr) {
 
 void FlashEndRead (uint32_t *addr) {
 }
+#elif defined(BLOCKDEVICE)
+// For Raspberry Pi Pico and RP2040 boards
+#include "FlashIAPBlockDevice.h"
+#include "KVStore.h"
+#include "TDBStore.h"
+
+// 512KB block device, starting 1MB inside the flash
+FlashIAPBlockDevice bd(XIP_BASE + 1024*1024, 1024*512);
+mbed::TDBStore eeprom(&bd);
 #endif
 
 int saveimage (object *arg) {
@@ -867,6 +878,24 @@ int saveimage (object *arg) {
     FlashWrite32(&addr, (uintptr_t)cdr(obj));
   }
   FlashEndWrite(&addr);
+  return imagesize;
+#elif defined(BLOCKDEVICE)
+  uint32_t imagesize = compactimage(&arg);
+  if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, invalidarg, arg);
+  if (eeprom.init() != MBED_SUCCESS) error2(SAVEIMAGE, PSTR("block device not available"));
+  if (eeprom.reset() != MBED_SUCCESS) error2(SAVEIMAGE, PSTR("block device error"));
+  // Save to flash
+  uint32_t SymbolUsed = SymbolTop - SymbolTable;
+  uint32_t bytesneeded = 20 + SymbolUsed + CODESIZE + imagesize*8;
+  if (bytesneeded > FLASHSIZE) error(SAVEIMAGE, PSTR("image too large"), number(imagesize));
+  eeprom.set("eval", &arg, 4, 0);
+  eeprom.set("size", &imagesize, 4, 0);
+  eeprom.set("genv", &GlobalEnv, 4, 0);
+  eeprom.set("gstk", &GCStack, 4, 0);
+  eeprom.set("stop", &SymbolTop, 4, 0);
+  eeprom.set("symb", &SymbolTable, SYMBOLTABLESIZE, 0);
+  eeprom.set("code", &MyCode, CODESIZE, 0);
+  eeprom.set("work", &Workspace, WORKSPACESIZE*4, 0);
   return imagesize;
 #else
   (void) arg;
@@ -932,6 +961,18 @@ int loadimage (object *arg) {
   FlashEndRead(&addr);
   gc(NULL, NULL);
   return imagesize;
+#elif defined(BLOCKDEVICE)
+  if (eeprom.init() != MBED_SUCCESS) error2(SAVEIMAGE, PSTR("block device not available"));
+  uint32_t imagesize;
+  if (eeprom.get("size", &imagesize, 4) != MBED_SUCCESS) error2(LOADIMAGE, PSTR("no saved image"));
+  eeprom.get("genv", &GlobalEnv, 4);
+  eeprom.get("gstk", &GCStack, 4);
+  eeprom.get("stop", &SymbolTop, 4);
+  eeprom.get("symb", &SymbolTable, SYMBOLTABLESIZE);
+  eeprom.get("code", &MyCode, CODESIZE);
+  eeprom.get("work", &Workspace, WORKSPACESIZE*4);
+  gc(NULL, NULL);
+  return imagesize;
 #else
   (void) arg;
   error2(LOADIMAGE, PSTR("not available"));
@@ -956,6 +997,14 @@ void autorunimage () {
   FlashBeginRead(&addr);
   object *autorun = (object *)FlashRead32(&addr);
   FlashEndRead(&addr);
+  if (autorun != NULL && (unsigned int)autorun != 0xFFFFFFFF) {
+    loadimage(nil);
+    apply(0, autorun, NULL, NULL);
+  }
+#elif defined(BLOCKDEVICE)
+  if (eeprom.init() != MBED_SUCCESS) error2(SAVEIMAGE, PSTR("block device not available"));
+  object *autorun;
+  eeprom.get("eval", &autorun, 4);
   if (autorun != NULL && (unsigned int)autorun != 0xFFFFFFFF) {
     loadimage(nil);
     apply(0, autorun, NULL, NULL);
@@ -3731,7 +3780,7 @@ object *fn_stringfn (object *args, object *env) {
     int chars = 0;
     while (ch) {
       if (ch == '\\') ch = *s++;
-      buildstring(ch, arg, &chars);
+      buildstring(ch, obj, &chars);
       ch = *s++;
     }
   } else error(STRINGFN, PSTR("can't convert to string"), arg);
