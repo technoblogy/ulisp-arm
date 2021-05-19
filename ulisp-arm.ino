@@ -1,5 +1,5 @@
-/* uLisp ARM Version 3.6d - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 18th May 2021
+/* uLisp ARM Version 3.6e - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 19th May 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -5947,7 +5947,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 3.7 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 3.6 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
