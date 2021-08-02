@@ -1,5 +1,5 @@
-/* uLisp ARM Version 4.0a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 9th July 2021
+/* uLisp ARM Version 4.0b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 2nd August 2021
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -1861,6 +1861,10 @@ void checkanalogread (int pin) {
   if (!(pin>=14 && pin<=25)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_GEMMA_M0)
   if (!(pin>=8 && pin<=10)) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_QTPY_M0)
+  if (!((pin>=0 && pin<=3) || (pin>=6 && pin<=10))) error(ANALOGREAD, invalidpin, number(pin));
+#elif defined(ARDUINO_SEEED_XIAO_M0)
+  if (!(pin>=0 && pin<=10)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_METRO_M4)
   if (!(pin>=14 && pin<=21)) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_ITSYBITSY_M4)
@@ -1903,6 +1907,10 @@ void checkanalogwrite (int pin) {
   if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || (pin>=15 && pin<=16) || (pin>=22 && pin<=25))) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_GEMMA_M0)
   if (!(pin==0 || pin==2 || pin==9 || pin==10)) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_QTPY_M0)
+  if (!(pin==0 || (pin>=2 && pin<=10))) error(ANALOGWRITE, invalidpin, number(pin));
+#elif defined(ARDUINO_SEEED_XIAO_M0)
+  if (!(pin>=0 && pin<=10)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_METRO_M4)
   if (!(pin>=0 && pin<=15)) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_ITSYBITSY_M4)
@@ -4267,7 +4275,7 @@ object *fn_pprintall (object *args, object *env) {
     } else if (consp(val) && car(val)->type == CODE) {
       superprint(cons(bsymbol(DEFCODE), cons(var, cdr(val))), 0, pfun);
     } else {
-      superprint(cons(bsymbol(DEFVAR), cons(var, cons(quote(val), NULL))), 0, pserial);
+      superprint(cons(bsymbol(DEFVAR), cons(var, cons(quote(val), NULL))), 0, pfun);
     }
     pln(pfun);
     testescape();
