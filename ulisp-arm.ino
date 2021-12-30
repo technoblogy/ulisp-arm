@@ -1,5 +1,5 @@
-/* uLisp ARM Version 4.0b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 2nd August 2021
+/* uLisp ARM Version 4.1 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 30th December 2021
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -101,7 +101,7 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #define CPU_ATSAMD51
 
 #elif defined(ARDUINO_SAMD_MKRZERO)
-  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define WORKSPACESIZE (2640-SDSIZE)     /* Objects (8*bytes) */
   #define EEPROMFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
@@ -110,7 +110,7 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #define CPU_ATSAMD21
 
 #elif defined(ARDUINO_SAMD_ZERO)          /* Put this last, otherwise overrides the Adafruit boards */
-  #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
+  #define WORKSPACESIZE (2640-SDSIZE)     /* Objects (8*bytes) */
   #define EEPROMFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define CODESIZE 128                    /* Bytes */
@@ -290,26 +290,35 @@ CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIO
 LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
 WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
 DIGITALWRITE, ANALOGREAD, ANALOGREFERENCE, ANALOGREADRESOLUTION, ANALOGWRITE, ANALOGWRITERESOLUTION,
-DELAY, MILLIS, SLEEP, NOTE, EDIT, PPRINT, PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, DRAWPIXEL, DRAWLINE,
-DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT, FILLROUNDRECT, DRAWTRIANGLE, FILLTRIANGLE,
-DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP, FILLSCREEN, SETROTATION, INVERTDISPLAY,
-KEYWORDS, 
+DELAY, MILLIS, SLEEP, NOTE, REGISTER, EDIT, PPRINT, PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, DRAWPIXEL,
+DRAWLINE, DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT, FILLROUNDRECT, DRAWTRIANGLE,
+FILLTRIANGLE, DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP, FILLSCREEN, SETROTATION,
+INVERTDISPLAY, KEYWORDS, 
 K_LED_BUILTIN, K_HIGH, K_LOW,
 #if defined(CPU_ATSAMD21)
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL1V0, K_AR_INTERNAL1V65,
-K_AR_INTERNAL2V23, K_AR_EXTERNAL,
+K_AR_INTERNAL2V23, K_AR_EXTERNAL, K_PA_DIR, K_PA_DIRCLR, K_PA_DIRSET, K_PA_DIRTGL, K_PA_OUT, K_PA_OUTCLR,
+K_PA_OUTSET, K_PA_OUTTGL, K_PA_IN, K_PB_DIR, K_PB_DIRCLR, K_PB_DIRSET, K_PB_DIRTGL, K_PB_OUT, K_PB_OUTCLR,
+K_PB_OUTSET, K_PB_OUTTGL, K_PB_IN,
 #elif defined(CPU_ATSAMD51)
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL1V0, K_AR_INTERNAL1V1,
 K_AR_INTERNAL1V2, K_AR_INTERNAL1V25, K_AR_INTERNAL1V65, K_AR_INTERNAL2V0, K_AR_INTERNAL2V2,
-K_AR_INTERNAL2V23, K_AR_INTERNAL2V4, K_AR_INTERNAL2V5, K_AR_EXTERNAL,
+K_AR_INTERNAL2V23, K_AR_INTERNAL2V4, K_AR_INTERNAL2V5, K_AR_EXTERNAL, K_PA_DIR, K_PA_DIRCLR, K_PA_DIRSET,
+K_PA_DIRTGL, K_PA_OUT, K_PA_OUTCLR, K_PA_OUTSET, K_PA_OUTTGL, K_PA_IN, K_PB_DIR, K_PB_DIRCLR, K_PB_DIRSET,
+K_PB_DIRTGL, K_PB_OUT, K_PB_OUTCLR, K_PB_OUTSET, K_PB_OUTTGL, K_PB_IN,
 #elif defined(CPU_NRF51822)
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_VBG, K_AR_SUPPLY_ONE_HALF,
-K_AR_SUPPLY_ONE_THIRD, K_AR_EXT0, K_AR_EXT1,
+K_AR_SUPPLY_ONE_THIRD, K_AR_EXT0, K_AR_EXT1, K_P0_OUT, K_P0_OUTSET, K_P0_OUTCLR, K_P0_IN, K_P0_DIR,
+K_P0_DIRSET, K_P0_DIRCLR,
 #elif defined(CPU_NRF52840)
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL, K_AR_INTERNAL_3_0,
-K_AR_INTERNAL_2_4, K_AR_INTERNAL_1_8, K_AR_INTERNAL_1_2, K_AR_VDD4,
+K_AR_INTERNAL_2_4, K_AR_INTERNAL_1_8, K_AR_INTERNAL_1_2, K_AR_VDD4, K_P0_OUT, K_P0_OUTSET, K_P0_OUTCLR,
+K_P0_IN, K_P0_DIR, K_P0_DIRSET, K_P0_DIRCLR, K_P1_OUT, K_P1_OUTSET, K_P1_OUTCLR, K_P1_IN, K_P1_DIR,
+K_P1_DIRSET, K_P1_DIRCLR,
 #elif defined(CPU_NRF52833)
-K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL, K_AR_VDD4,
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL, K_AR_VDD4, K_P0_OUT,
+K_P0_OUTSET, K_P0_OUTCLR, K_P0_IN, K_P0_DIR, K_P0_DIRSET, K_P0_DIRCLR, K_P1_OUT, K_P1_OUTSET, K_P1_OUTCLR,
+K_P1_IN, K_P1_DIR, K_P1_DIRSET, K_P1_DIRCLR,
 #elif defined(CPU_iMXRT1062)
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_OUTPUT_OPENDRAIN,
 #elif defined(CPU_MAX32620)
@@ -396,9 +405,11 @@ const char toofewargs[] PROGMEM = "too few arguments";
 const char noargument[] PROGMEM = "missing argument";
 const char nostream[] PROGMEM = "missing stream argument";
 const char overflow[] PROGMEM = "arithmetic overflow";
+const char divisionbyzero[] PROGMEM = "division by zero";
 const char indexnegative[] PROGMEM = "index can't be negative";
 const char invalidarg[] PROGMEM = "invalid argument";
 const char invalidkey[] PROGMEM = "invalid keyword";
+const char illegalclause[] PROGMEM = "illegal clause";
 const char invalidpin[] PROGMEM = "invalid pin";
 const char oddargs[] PROGMEM = "odd number of arguments";
 const char indexrange[] PROGMEM = "index out of range";
@@ -1484,11 +1495,11 @@ void pstr (char c) {
 object *lispstring (char *s) {
   object *obj = newstring();
   object *tail = obj;
-  char ch = *s++;
-  while (ch) {
+  while(1) {
+    char ch = *s++;
+    if (ch == 0) break;
     if (ch == '\\') ch = *s++;
     buildstring(ch, &tail);
-    ch = *s++;
   }
   return obj;
 }
@@ -2789,7 +2800,7 @@ object *tf_progn (object *args, object *env) {
 }
 
 object *tf_if (object *args, object *env) {
-  if (args == NULL || cdr(args) == NULL) error2(IF, PSTR("missing argument(s)"));
+  if (args == NULL || cdr(args) == NULL) error2(IF, toofewargs);
   if (eval(first(args), env) != nil) return second(args);
   args = cddr(args);
   return (args != NULL) ? first(args) : nil;
@@ -2798,7 +2809,7 @@ object *tf_if (object *args, object *env) {
 object *tf_cond (object *args, object *env) {
   while (args != NULL) {
     object *clause = first(args);
-    if (!consp(clause)) error(COND, PSTR("illegal clause"), clause);
+    if (!consp(clause)) error(COND, illegalclause, clause);
     object *test = eval(first(clause), env);
     object *forms = cdr(clause);
     if (test != nil) {
@@ -2826,7 +2837,7 @@ object *tf_case (object *args, object *env) {
   args = cdr(args);
   while (args != NULL) {
     object *clause = first(args);
-    if (!consp(clause)) error(CASE, PSTR("illegal clause"), clause);
+    if (!consp(clause)) error(CASE, illegalclause, clause);
     object *key = car(clause);
     object *forms = cdr(clause);
     if (consp(key)) {
@@ -3311,7 +3322,7 @@ object *divide_floats (object *args, float fresult) {
   while (args != NULL) {
     object *arg = car(args);
     float f = checkintfloat(DIVIDE, arg);
-    if (f == 0.0) error2(DIVIDE, PSTR("division by zero"));
+    if (f == 0.0) error2(DIVIDE, divisionbyzero);
     fresult = fresult / f;
     args = cdr(args);
   }
@@ -3659,7 +3670,7 @@ object *fn_expt (object *args, object *env) {
   object *arg1 = first(args); object *arg2 = second(args);
   float float1 = checkintfloat(EXPT, arg1);
   float value = log(abs(float1)) * checkintfloat(EXPT, arg2);
-  if (integerp(arg1) && integerp(arg2) && ((arg2->integer) > 0) && (abs(value) < 21.4875))
+  if (integerp(arg1) && integerp(arg2) && ((arg2->integer) >= 0) && (abs(value) < 21.4875))
     return number(intpower(arg1->integer, arg2->integer));
   if (float1 < 0) {
     if (integerp(arg2)) return makefloat((arg2->integer & 1) ? -exp(value) : exp(value));
@@ -4215,6 +4226,17 @@ object *fn_note (object *args, object *env) {
   return nil;
 }
 
+object *fn_register (object *args, object *env) {
+  (void) env;
+  object *arg = first(args);
+  int addr;
+  if (keywordp(arg)) addr = checkkeyword(REGISTER, arg);
+  else addr = checkinteger(REGISTER, first(args));
+  if (cdr(args) == NULL) return number(*(uint32_t *)addr);
+  (*(uint32_t *)addr) = checkinteger(REGISTER, second(args));
+  return second(args);
+}
+
 // Tree Editor
 
 object *fn_edit (object *args, object *env) {
@@ -4290,7 +4312,7 @@ object *fn_pprintall (object *args, object *env) {
 void formaterr (object *formatstr, PGM_P string, uint8_t p) {
   pln(pserial); indent(4, ' ', pserial); printstring(formatstr, pserial); pln(pserial);
   indent(p+5, ' ', pserial); pserial('^');
-  errorsub(FORMAT, string);
+  error2(FORMAT, string);
   pln(pserial);
   GCStack = NULL;
   longjmp(exception, 1);
@@ -4795,117 +4817,189 @@ const char string186[] PROGMEM = "delay";
 const char string187[] PROGMEM = "millis";
 const char string188[] PROGMEM = "sleep";
 const char string189[] PROGMEM = "note";
-const char string190[] PROGMEM = "edit";
-const char string191[] PROGMEM = "pprint";
-const char string192[] PROGMEM = "pprintall";
-const char string193[] PROGMEM = "format";
-const char string194[] PROGMEM = "require";
-const char string195[] PROGMEM = "list-library";
-const char string196[] PROGMEM = "draw-pixel";
-const char string197[] PROGMEM = "draw-line";
-const char string198[] PROGMEM = "draw-rect";
-const char string199[] PROGMEM = "fill-rect";
-const char string200[] PROGMEM = "draw-circle";
-const char string201[] PROGMEM = "fill-circle";
-const char string202[] PROGMEM = "draw-round-rect";
-const char string203[] PROGMEM = "fill-round-rect";
-const char string204[] PROGMEM = "draw-triangle";
-const char string205[] PROGMEM = "fill-triangle";
-const char string206[] PROGMEM = "draw-char";
-const char string207[] PROGMEM = "set-cursor";
-const char string208[] PROGMEM = "set-text-color";
-const char string209[] PROGMEM = "set-text-size";
-const char string210[] PROGMEM = "set-text-wrap";
-const char string211[] PROGMEM = "fill-screen";
-const char string212[] PROGMEM = "set-rotation";
-const char string213[] PROGMEM = "invert-display";
-const char string214[] PROGMEM = "";
-const char string215[] PROGMEM = ":led-builtin";
-const char string216[] PROGMEM = ":high";
-const char string217[] PROGMEM = ":low";
+const char string190[] PROGMEM = "register";
+const char string191[] PROGMEM = "edit";
+const char string192[] PROGMEM = "pprint";
+const char string193[] PROGMEM = "pprintall";
+const char string194[] PROGMEM = "format";
+const char string195[] PROGMEM = "require";
+const char string196[] PROGMEM = "list-library";
+const char string197[] PROGMEM = "draw-pixel";
+const char string198[] PROGMEM = "draw-line";
+const char string199[] PROGMEM = "draw-rect";
+const char string200[] PROGMEM = "fill-rect";
+const char string201[] PROGMEM = "draw-circle";
+const char string202[] PROGMEM = "fill-circle";
+const char string203[] PROGMEM = "draw-round-rect";
+const char string204[] PROGMEM = "fill-round-rect";
+const char string205[] PROGMEM = "draw-triangle";
+const char string206[] PROGMEM = "fill-triangle";
+const char string207[] PROGMEM = "draw-char";
+const char string208[] PROGMEM = "set-cursor";
+const char string209[] PROGMEM = "set-text-color";
+const char string210[] PROGMEM = "set-text-size";
+const char string211[] PROGMEM = "set-text-wrap";
+const char string212[] PROGMEM = "fill-screen";
+const char string213[] PROGMEM = "set-rotation";
+const char string214[] PROGMEM = "invert-display";
+const char string215[] PROGMEM = "";
+const char string216[] PROGMEM = ":led-builtin";
+const char string217[] PROGMEM = ":high";
+const char string218[] PROGMEM = ":low";
 #if defined(CPU_ATSAMD21)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":input-pulldown";
-const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = ":ar-default";
-const char string223[] PROGMEM = ":ar-internal1v0";
-const char string224[] PROGMEM = ":ar-internal1v65";
-const char string225[] PROGMEM = ":ar-internal2v23";
-const char string226[] PROGMEM = ":ar-external";
-const char string227[] PROGMEM = "";
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = ":ar-default";
+const char string224[] PROGMEM = ":ar-internal1v0";
+const char string225[] PROGMEM = ":ar-internal1v65";
+const char string226[] PROGMEM = ":ar-internal2v23";
+const char string227[] PROGMEM = ":ar-external";
+const char string228[] PROGMEM = ":pa-dir";
+const char string229[] PROGMEM = ":pa-dirclr";
+const char string230[] PROGMEM = ":pa-dirset";
+const char string231[] PROGMEM = ":pa-dirtgl";
+const char string232[] PROGMEM = ":pa-out";
+const char string233[] PROGMEM = ":pa-outclr";
+const char string234[] PROGMEM = ":pa-outset";
+const char string235[] PROGMEM = ":pa-outtgl";
+const char string236[] PROGMEM = ":pa-in";
+const char string237[] PROGMEM = ":pb-dir";
+const char string238[] PROGMEM = ":pb-dirclr";
+const char string239[] PROGMEM = ":pb-dirset";
+const char string240[] PROGMEM = ":pb-dirtgl";
+const char string241[] PROGMEM = ":pb-out";
+const char string242[] PROGMEM = ":pb-outclr";
+const char string243[] PROGMEM = ":pb-outset";
+const char string244[] PROGMEM = ":pb-outtgl";
+const char string245[] PROGMEM = ":pb-in";
+const char string246[] PROGMEM = "";
 #elif defined(CPU_ATSAMD51)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":input-pulldown";
-const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = ":ar-default";
-const char string223[] PROGMEM = ":ar-internal1v0";
-const char string224[] PROGMEM = ":ar-internal1v1";
-const char string225[] PROGMEM = ":ar-internal1v2";
-const char string226[] PROGMEM = ":ar-internal1v25";
-const char string227[] PROGMEM = ":ar-internal1v65";
-const char string228[] PROGMEM = ":ar-internal2v0";
-const char string229[] PROGMEM = ":ar-internal2v2";
-const char string230[] PROGMEM = ":ar-internal2v23";
-const char string231[] PROGMEM = ":ar-internal2v4";
-const char string232[] PROGMEM = ":ar-internal2v5";
-const char string233[] PROGMEM = ":ar-external";
-const char string234[] PROGMEM = "";
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = ":ar-default";
+const char string224[] PROGMEM = ":ar-internal1v0";
+const char string225[] PROGMEM = ":ar-internal1v1";
+const char string226[] PROGMEM = ":ar-internal1v2";
+const char string227[] PROGMEM = ":ar-internal1v25";
+const char string228[] PROGMEM = ":ar-internal1v65";
+const char string229[] PROGMEM = ":ar-internal2v0";
+const char string230[] PROGMEM = ":ar-internal2v2";
+const char string231[] PROGMEM = ":ar-internal2v23";
+const char string232[] PROGMEM = ":ar-internal2v4";
+const char string233[] PROGMEM = ":ar-internal2v5";
+const char string234[] PROGMEM = ":ar-external";
+const char string235[] PROGMEM = ":pa-dir";
+const char string236[] PROGMEM = ":pa-dirclr";
+const char string237[] PROGMEM = ":pa-dirset";
+const char string238[] PROGMEM = ":pa-dirtgl";
+const char string239[] PROGMEM = ":pa-out";
+const char string240[] PROGMEM = ":pa-outclr";
+const char string241[] PROGMEM = ":pa-outset";
+const char string242[] PROGMEM = ":pa-outtgl";
+const char string243[] PROGMEM = ":pa-in";
+const char string244[] PROGMEM = ":pb-dir";
+const char string245[] PROGMEM = ":pb-dirclr";
+const char string246[] PROGMEM = ":pb-dirset";
+const char string247[] PROGMEM = ":pb-dirtgl";
+const char string248[] PROGMEM = ":pb-out";
+const char string249[] PROGMEM = ":pb-outclr";
+const char string250[] PROGMEM = ":pb-outset";
+const char string251[] PROGMEM = ":pb-outtgl";
+const char string252[] PROGMEM = ":pb-in";
+const char string253[] PROGMEM = "";
 #elif defined(CPU_NRF51822)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":input-pulldown";
-const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = ":ar-default";
-const char string223[] PROGMEM = ":ar-vbg";
-const char string224[] PROGMEM = ":ar-supply-one-half";
-const char string225[] PROGMEM = ":ar-supply-one-third";
-const char string226[] PROGMEM = ":ar-ext0";
-const char string227[] PROGMEM = ":ar-ext1";
-const char string228[] PROGMEM = "";
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = ":ar-default";
+const char string224[] PROGMEM = ":ar-vbg";
+const char string225[] PROGMEM = ":ar-supply-one-half";
+const char string226[] PROGMEM = ":ar-supply-one-third";
+const char string227[] PROGMEM = ":ar-ext0";
+const char string228[] PROGMEM = ":ar-ext1";
+const char string229[] PROGMEM = ":p0-out";
+const char string230[] PROGMEM = ":p0-outset";
+const char string231[] PROGMEM = ":p0-outclr";
+const char string232[] PROGMEM = ":p0-in";
+const char string233[] PROGMEM = ":p0-dir";
+const char string234[] PROGMEM = ":p0-dirset";
+const char string235[] PROGMEM = ":p0-dirclr";
+const char string236[] PROGMEM = "";
 #elif defined(CPU_NRF52840)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":input-pulldown";
-const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = ":ar-default";
-const char string223[] PROGMEM = ":ar-internal";
-const char string224[] PROGMEM = ":ar-internal-3-0";
-const char string225[] PROGMEM = ":ar-internal-2-4";
-const char string226[] PROGMEM = ":ar-internal-1-8";
-const char string227[] PROGMEM = ":ar-internal-1-2";
-const char string228[] PROGMEM = ":ar-vdd4";
-const char string229[] PROGMEM = "";
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = ":ar-default";
+const char string224[] PROGMEM = ":ar-internal";
+const char string225[] PROGMEM = ":ar-internal-3-0";
+const char string226[] PROGMEM = ":ar-internal-2-4";
+const char string227[] PROGMEM = ":ar-internal-1-8";
+const char string228[] PROGMEM = ":ar-internal-1-2";
+const char string229[] PROGMEM = ":ar-vdd4";
+const char string230[] PROGMEM = ":p0-out";
+const char string231[] PROGMEM = ":p0-outset";
+const char string232[] PROGMEM = ":p0-outclr";
+const char string233[] PROGMEM = ":p0-in";
+const char string234[] PROGMEM = ":p0-dir";
+const char string235[] PROGMEM = ":p0-dirset";
+const char string236[] PROGMEM = ":p0-dirclr";
+const char string237[] PROGMEM = ":p1-out";
+const char string238[] PROGMEM = ":p1-outset";
+const char string239[] PROGMEM = ":p1-outclr";
+const char string240[] PROGMEM = ":p1-in";
+const char string241[] PROGMEM = ":p1-dir";
+const char string242[] PROGMEM = ":p1-dirset";
+const char string243[] PROGMEM = ":p1-dirclr";
+const char string244[] PROGMEM = "";
 #elif defined(CPU_NRF52833)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":input-pulldown";
-const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = ":ar-default";
-const char string223[] PROGMEM = ":ar-internal";
-const char string224[] PROGMEM = ":ar-vdd4";
-const char string225[] PROGMEM = "";
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = ":ar-default";
+const char string224[] PROGMEM = ":ar-internal";
+const char string225[] PROGMEM = ":ar-vdd4";
+const char string226[] PROGMEM = ":p0-out";
+const char string227[] PROGMEM = ":p0-outset";
+const char string228[] PROGMEM = ":p0-outclr";
+const char string229[] PROGMEM = ":p0-in";
+const char string230[] PROGMEM = ":p0-dir";
+const char string231[] PROGMEM = ":p0-dirset";
+const char string232[] PROGMEM = ":p0-dirclr";
+const char string233[] PROGMEM = ":p1-out";
+const char string234[] PROGMEM = ":p1-outset";
+const char string235[] PROGMEM = ":p1-outclr";
+const char string236[] PROGMEM = ":p1-in";
+const char string237[] PROGMEM = ":p1-dir";
+const char string238[] PROGMEM = ":p1-dirset";
+const char string239[] PROGMEM = ":p1-dirclr";
+const char string240[] PROGMEM = "";
 #elif defined(CPU_iMXRT1062)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":input-pulldown";
-const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = ":output-opendrain";
-const char string223[] PROGMEM = "";
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = ":output-opendrain";
+const char string224[] PROGMEM = "";
 #elif defined(CPU_MAX32620)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":output";
-const char string221[] PROGMEM = ":default";
-const char string222[] PROGMEM = ":external";
-const char string223[] PROGMEM = "";
-#elif defined(CPU_RP2040)
-const char string218[] PROGMEM = ":input";
-const char string219[] PROGMEM = ":input-pullup";
-const char string220[] PROGMEM = ":input-pulldown";
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
 const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = "";
+const char string222[] PROGMEM = ":default";
+const char string223[] PROGMEM = ":external";
+const char string224[] PROGMEM = "";
+#elif defined(CPU_RP2040)
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = "";
 #endif
 
 // Insert your own function names here
@@ -5102,117 +5196,189 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string187, fn_millis, 0x00 },
   { string188, fn_sleep, 0x11 },
   { string189, fn_note, 0x03 },
-  { string190, fn_edit, 0x11 },
-  { string191, fn_pprint, 0x12 },
-  { string192, fn_pprintall, 0x01 },
-  { string193, fn_format, 0x2F },
-  { string194, fn_require, 0x11 },
-  { string195, fn_listlibrary, 0x00 },
-  { string196, fn_drawpixel, 0x23 },
-  { string197, fn_drawline, 0x45 },
-  { string198, fn_drawrect, 0x45 },
-  { string199, fn_fillrect, 0x45 },
-  { string200, fn_drawcircle, 0x34 },
-  { string201, fn_fillcircle, 0x34 },
-  { string202, fn_drawroundrect, 0x56 },
-  { string203, fn_fillroundrect, 0x56 },
-  { string204, fn_drawtriangle, 0x67 },
-  { string205, fn_filltriangle, 0x67 },
-  { string206, fn_drawchar, 0x36 },
-  { string207, fn_setcursor, 0x22 },
-  { string208, fn_settextcolor, 0x12 },
-  { string209, fn_settextsize, 0x11 },
-  { string210, fn_settextwrap, 0x11 },
-  { string211, fn_fillscreen, 0x01 },
-  { string212, fn_setrotation, 0x11 },
-  { string213, fn_invertdisplay, 0x11 },
-  { string214, NULL, 0x00 },
-  { string215, (fn_ptr_type)LED_BUILTIN, 0 },
-  { string216, (fn_ptr_type)HIGH, DIGITALWRITE },
-  { string217, (fn_ptr_type)LOW, DIGITALWRITE },
+  { string190, fn_register, 0x12 },
+  { string191, fn_edit, 0x11 },
+  { string192, fn_pprint, 0x12 },
+  { string193, fn_pprintall, 0x01 },
+  { string194, fn_format, 0x2F },
+  { string195, fn_require, 0x11 },
+  { string196, fn_listlibrary, 0x00 },
+  { string197, fn_drawpixel, 0x23 },
+  { string198, fn_drawline, 0x45 },
+  { string199, fn_drawrect, 0x45 },
+  { string200, fn_fillrect, 0x45 },
+  { string201, fn_drawcircle, 0x34 },
+  { string202, fn_fillcircle, 0x34 },
+  { string203, fn_drawroundrect, 0x56 },
+  { string204, fn_fillroundrect, 0x56 },
+  { string205, fn_drawtriangle, 0x67 },
+  { string206, fn_filltriangle, 0x67 },
+  { string207, fn_drawchar, 0x36 },
+  { string208, fn_setcursor, 0x22 },
+  { string209, fn_settextcolor, 0x12 },
+  { string210, fn_settextsize, 0x11 },
+  { string211, fn_settextwrap, 0x11 },
+  { string212, fn_fillscreen, 0x01 },
+  { string213, fn_setrotation, 0x11 },
+  { string214, fn_invertdisplay, 0x11 },
+  { string215, NULL, 0x00 },
+  { string216, (fn_ptr_type)LED_BUILTIN, 0 },
+  { string217, (fn_ptr_type)HIGH, DIGITALWRITE },
+  { string218, (fn_ptr_type)LOW, DIGITALWRITE },
 #if defined(CPU_ATSAMD21)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string223, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
-  { string227, NULL, 0x00 },
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
+  { string225, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
+  { string226, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
+  { string227, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
+  { string228, (fn_ptr_type)&PORT->Group[0].DIR.reg, REGISTER },
+  { string229, (fn_ptr_type)&PORT->Group[0].DIRCLR.reg, REGISTER },
+  { string230, (fn_ptr_type)&PORT->Group[0].DIRSET.reg, REGISTER },
+  { string231, (fn_ptr_type)&PORT->Group[0].DIRTGL.reg, REGISTER },
+  { string232, (fn_ptr_type)&PORT->Group[0].OUT.reg, REGISTER },
+  { string233, (fn_ptr_type)&PORT->Group[0].OUTCLR.reg, REGISTER },
+  { string234, (fn_ptr_type)&PORT->Group[0].OUTSET.reg, REGISTER },
+  { string235, (fn_ptr_type)&PORT->Group[0].OUTTGL.reg, REGISTER },
+  { string236, (fn_ptr_type)&PORT->Group[0].IN.reg, REGISTER },
+  { string237, (fn_ptr_type)&PORT->Group[1].DIR.reg, REGISTER },
+  { string238, (fn_ptr_type)&PORT->Group[1].DIRCLR.reg, REGISTER },
+  { string239, (fn_ptr_type)&PORT->Group[1].DIRSET.reg, REGISTER },
+  { string240, (fn_ptr_type)&PORT->Group[1].DIRTGL.reg, REGISTER },
+  { string241, (fn_ptr_type)&PORT->Group[1].OUT.reg, REGISTER },
+  { string242, (fn_ptr_type)&PORT->Group[1].OUTCLR.reg, REGISTER },
+  { string243, (fn_ptr_type)&PORT->Group[1].OUTSET.reg, REGISTER },
+  { string244, (fn_ptr_type)&PORT->Group[1].OUTTGL.reg, REGISTER },
+  { string245, (fn_ptr_type)&PORT->Group[1].IN.reg, REGISTER },
+  { string246, NULL, 0x00 },
 #elif defined(CPU_ATSAMD51)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string223, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_INTERNAL1V1, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_INTERNAL1V2, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_INTERNAL1V25, ANALOGREFERENCE },
-  { string227, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
-  { string228, (fn_ptr_type)AR_INTERNAL2V0, ANALOGREFERENCE },
-  { string229, (fn_ptr_type)AR_INTERNAL2V2, ANALOGREFERENCE },
-  { string230, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
-  { string231, (fn_ptr_type)AR_INTERNAL2V4, ANALOGREFERENCE },
-  { string232, (fn_ptr_type)AR_INTERNAL2V5, ANALOGREFERENCE },
-  { string233, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
-  { string234, NULL, 0x00 },
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
+  { string225, (fn_ptr_type)AR_INTERNAL1V1, ANALOGREFERENCE },
+  { string226, (fn_ptr_type)AR_INTERNAL1V2, ANALOGREFERENCE },
+  { string227, (fn_ptr_type)AR_INTERNAL1V25, ANALOGREFERENCE },
+  { string228, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
+  { string229, (fn_ptr_type)AR_INTERNAL2V0, ANALOGREFERENCE },
+  { string230, (fn_ptr_type)AR_INTERNAL2V2, ANALOGREFERENCE },
+  { string231, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
+  { string232, (fn_ptr_type)AR_INTERNAL2V4, ANALOGREFERENCE },
+  { string233, (fn_ptr_type)AR_INTERNAL2V5, ANALOGREFERENCE },
+  { string234, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
+  { string235, (fn_ptr_type)&PORT->Group[0].DIR.reg, REGISTER },
+  { string236, (fn_ptr_type)&PORT->Group[0].DIRCLR.reg, REGISTER },
+  { string237, (fn_ptr_type)&PORT->Group[0].DIRSET.reg, REGISTER },
+  { string238, (fn_ptr_type)&PORT->Group[0].DIRTGL.reg, REGISTER },
+  { string239, (fn_ptr_type)&PORT->Group[0].OUT.reg, REGISTER },
+  { string240, (fn_ptr_type)&PORT->Group[0].OUTCLR.reg, REGISTER },
+  { string241, (fn_ptr_type)&PORT->Group[0].OUTSET.reg, REGISTER },
+  { string242, (fn_ptr_type)&PORT->Group[0].OUTTGL.reg, REGISTER },
+  { string243, (fn_ptr_type)&PORT->Group[0].IN.reg, REGISTER },
+  { string244, (fn_ptr_type)&PORT->Group[1].DIR.reg, REGISTER },
+  { string245, (fn_ptr_type)&PORT->Group[1].DIRCLR.reg, REGISTER },
+  { string246, (fn_ptr_type)&PORT->Group[1].DIRSET.reg, REGISTER },
+  { string247, (fn_ptr_type)&PORT->Group[1].DIRTGL.reg, REGISTER },
+  { string248, (fn_ptr_type)&PORT->Group[1].OUT.reg, REGISTER },
+  { string249, (fn_ptr_type)&PORT->Group[1].OUTCLR.reg, REGISTER },
+  { string250, (fn_ptr_type)&PORT->Group[1].OUTSET.reg, REGISTER },
+  { string251, (fn_ptr_type)&PORT->Group[1].OUTTGL.reg, REGISTER },
+  { string252, (fn_ptr_type)&PORT->Group[1].IN.reg, REGISTER },
+  { string253, NULL, 0x00 },
 #elif defined(CPU_NRF51822)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string223, (fn_ptr_type)AR_VBG, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_SUPPLY_ONE_HALF, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_SUPPLY_ONE_THIRD, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_EXT0, ANALOGREFERENCE },
-  { string227, (fn_ptr_type)AR_EXT1, ANALOGREFERENCE },
-  { string228, NULL, 0x00 },
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_VBG, ANALOGREFERENCE },
+  { string225, (fn_ptr_type)AR_SUPPLY_ONE_HALF, ANALOGREFERENCE },
+  { string226, (fn_ptr_type)AR_SUPPLY_ONE_THIRD, ANALOGREFERENCE },
+  { string227, (fn_ptr_type)AR_EXT0, ANALOGREFERENCE },
+  { string228, (fn_ptr_type)AR_EXT1, ANALOGREFERENCE },
+  { string229, (fn_ptr_type)&NRF_GPIO->OUT, REGISTER },
+  { string230, (fn_ptr_type)&NRF_GPIO->OUTSET, REGISTER },
+  { string231, (fn_ptr_type)&NRF_GPIO->OUTCLR, REGISTER },
+  { string232, (fn_ptr_type)&NRF_GPIO->IN, REGISTER },
+  { string233, (fn_ptr_type)&NRF_GPIO->DIR, REGISTER },
+  { string234, (fn_ptr_type)&NRF_GPIO->DIRSET, REGISTER },
+  { string235, (fn_ptr_type)&NRF_GPIO->DIRCLR, REGISTER },
+  { string236, NULL, 0x00 },
 #elif defined(CPU_NRF52840)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string223, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_INTERNAL_3_0, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_INTERNAL_2_4, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_INTERNAL_1_8, ANALOGREFERENCE },
-  { string227, (fn_ptr_type)AR_INTERNAL_1_2, ANALOGREFERENCE },
-  { string228, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
-  { string229, NULL, 0x00 },
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
+  { string225, (fn_ptr_type)AR_INTERNAL_3_0, ANALOGREFERENCE },
+  { string226, (fn_ptr_type)AR_INTERNAL_2_4, ANALOGREFERENCE },
+  { string227, (fn_ptr_type)AR_INTERNAL_1_8, ANALOGREFERENCE },
+  { string228, (fn_ptr_type)AR_INTERNAL_1_2, ANALOGREFERENCE },
+  { string229, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
+  { string230, (fn_ptr_type)&NRF_P0->OUT, REGISTER },
+  { string231, (fn_ptr_type)&NRF_P0->OUTSET, REGISTER },
+  { string232, (fn_ptr_type)&NRF_P0->OUTCLR, REGISTER },
+  { string233, (fn_ptr_type)&NRF_P0->IN, REGISTER },
+  { string234, (fn_ptr_type)&NRF_P0->DIR, REGISTER },
+  { string235, (fn_ptr_type)&NRF_P0->DIRSET, REGISTER },
+  { string236, (fn_ptr_type)&NRF_P0->DIRCLR, REGISTER },
+  { string237, (fn_ptr_type)&NRF_P1->OUT, REGISTER },
+  { string238, (fn_ptr_type)&NRF_P1->OUTSET, REGISTER },
+  { string239, (fn_ptr_type)&NRF_P1->OUTCLR, REGISTER },
+  { string240, (fn_ptr_type)&NRF_P1->IN, REGISTER },
+  { string241, (fn_ptr_type)&NRF_P1->DIR, REGISTER },
+  { string242, (fn_ptr_type)&NRF_P1->DIRSET, REGISTER },
+  { string243, (fn_ptr_type)&NRF_P1->DIRCLR, REGISTER },
+  { string244, NULL, 0x00 },
 #elif defined(CPU_NRF52833)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string223, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
-  { string225, NULL, 0x00 },
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string224, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
+  { string225, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
+  { string226, (fn_ptr_type)&NRF_P0->OUT, REGISTER },
+  { string227, (fn_ptr_type)&NRF_P0->OUTSET, REGISTER },
+  { string228, (fn_ptr_type)&NRF_P0->OUTCLR, REGISTER },
+  { string229, (fn_ptr_type)&NRF_P0->IN, REGISTER },
+  { string230, (fn_ptr_type)&NRF_P0->DIR, REGISTER },
+  { string231, (fn_ptr_type)&NRF_P0->DIRSET, REGISTER },
+  { string232, (fn_ptr_type)&NRF_P0->DIRCLR, REGISTER },
+  { string233, (fn_ptr_type)&NRF_P1->OUT, REGISTER },
+  { string234, (fn_ptr_type)&NRF_P1->OUTSET, REGISTER },
+  { string235, (fn_ptr_type)&NRF_P1->OUTCLR, REGISTER },
+  { string236, (fn_ptr_type)&NRF_P1->IN, REGISTER },
+  { string237, (fn_ptr_type)&NRF_P1->DIR, REGISTER },
+  { string238, (fn_ptr_type)&NRF_P1->DIRSET, REGISTER },
+  { string239, (fn_ptr_type)&NRF_P1->DIRCLR, REGISTER },
+  { string240, NULL, 0x00 },
 #elif defined(CPU_iMXRT1062)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT_OPENDRAIN, PINMODE },
-  { string223, NULL, 0x00 },
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, (fn_ptr_type)OUTPUT_OPENDRAIN, PINMODE },
+  { string224, NULL, 0x00 },
 #elif defined(CPU_MAX32620)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)OUTPUT, PINMODE },
-  { string221, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
-  { string222, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
-  { string223, NULL, 0x00 },
-#elif defined(CPU_RP2040)
-  { string218, (fn_ptr_type)INPUT, PINMODE },
-  { string219, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
   { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, NULL, 0x00 },
+  { string222, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
+  { string223, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
+  { string224, NULL, 0x00 },
+#elif defined(CPU_RP2040)
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, NULL, 0x00 },
 #endif
 
 // Insert your own table entries here
@@ -5963,7 +6129,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.0 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.1 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
