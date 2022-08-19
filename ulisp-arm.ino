@@ -1,6 +1,6 @@
-/* uLisp ARM Version 4.1a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 15th February 2022
-
+/* uLisp ARM Version 4.2 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 19th August 2022
+   
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
 
@@ -183,6 +183,17 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #define STACKDIFF 320
   #define CPU_RP2040
 
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
+  #define WORKSPACESIZE (15872-SDSIZE)    /* Objects (8*bytes) */
+  #define LITTLEFS
+  #include <WiFi.h>
+  #include <LittleFS.h>
+  #define FILE_WRITE_BEGIN "w"
+  #define FILE_READ "r"
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_RP2040
+
 #else
 #error "Board not supported!"
 #endif
@@ -234,16 +245,17 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 const int TRACEMAX = 3; // Number of traced functions
 enum type { ZZERO=0, SYMBOL=2, CODE=4, NUMBER=6, STREAM=8, CHARACTER=10, FLOAT=12, ARRAY=14, STRING=16, PAIR=18 };  // ARRAY STRING and PAIR must be last
 enum token { UNUSED, BRA, KET, QUO, DOT };
-enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM, STRINGSTREAM, GFXSTREAM };
+enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM, WIFISTREAM, STRINGSTREAM, GFXSTREAM };
 
 // Stream names used by printobject
 const char serialstream[] PROGMEM = "serial";
 const char i2cstream[] PROGMEM = "i2c";
 const char spistream[] PROGMEM = "spi";
 const char sdstream[] PROGMEM = "sd";
+const char wifistream[] PROGMEM = "wifi";
 const char stringstream[] PROGMEM = "string";
 const char gfxstream[] PROGMEM = "gfx";
-const char *const streamname[] PROGMEM = {serialstream, i2cstream, spistream, sdstream, stringstream, gfxstream};
+const char *const streamname[] PROGMEM = {serialstream, i2cstream, spistream, sdstream, wifistream, stringstream, gfxstream};
 
 // Typedefs
 
@@ -283,22 +295,22 @@ typedef void (*pfun_t)(char);
 enum builtin_t { NIL, TEE, NOTHING, OPTIONAL, INITIALELEMENT, ELEMENTTYPE, BIT, AMPREST, LAMBDA, LET,
 LETSTAR, CLOSURE, PSTAR, SPECIAL_FORMS, QUOTE, OR, DEFUN, DEFVAR, SETQ, LOOP, RETURN, PUSH, POP, INCF,
 DECF, SETF, DOLIST, DOTIMES, TRACE, UNTRACE, FORMILLIS, TIME, WITHOUTPUTTOSTRING, WITHSERIAL, WITHI2C,
-WITHSPI, WITHSDCARD, WITHGFX, DEFCODE, TAIL_FORMS, PROGN, IF, COND, WHEN, UNLESS, CASE, AND, FUNCTIONS,
-NOT, NULLFN, CONS, ATOM, LISTP, CONSP, SYMBOLP, ARRAYP, BOUNDP, SETFN, STREAMP, EQ, CAR, FIRST, CDR, REST,
-CAAR, CADR, SECOND, CDAR, CDDR, CAAAR, CAADR, CADAR, CADDR, THIRD, CDAAR, CDADR, CDDAR, CDDDR, LENGTH,
-ARRAYDIMENSIONS, LIST, MAKEARRAY, REVERSE, NTH, AREF, ASSOC, MEMBER, APPLY, FUNCALL, APPEND, MAPC, MAPCAR,
-MAPCAN, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, ONEPLUS, ONEMINUS, ABS, RANDOM, MAXFN, MINFN, NOTEQ, NUMEQ,
-LESS, LESSEQ, GREATER, GREATEREQ, PLUSP, MINUSP, ZEROP, ODDP, EVENP, INTEGERP, NUMBERP, FLOATFN, FLOATP,
-SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, EXP, SQRT, LOG, EXPT, CEILING, FLOOR, TRUNCATE, ROUND,
-CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRINGEQ, STRINGLESS, STRINGGREATER, SORT, STRINGFN,
+WITHSPI, WITHSDCARD, WITHGFX, WITHCLIENT, DEFCODE, TAIL_FORMS, PROGN, IF, COND, WHEN, UNLESS, CASE, AND,
+FUNCTIONS, NOT, NULLFN, CONS, ATOM, LISTP, CONSP, SYMBOLP, ARRAYP, BOUNDP, SETFN, STREAMP, EQ, CAR, FIRST,
+CDR, REST, CAAR, CADR, SECOND, CDAR, CDDR, CAAAR, CAADR, CADAR, CADDR, THIRD, CDAAR, CDADR, CDDAR, CDDDR,
+LENGTH, ARRAYDIMENSIONS, LIST, MAKEARRAY, REVERSE, NTH, AREF, ASSOC, MEMBER, APPLY, FUNCALL, APPEND, MAPC,
+MAPCAR, MAPCAN, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, ONEPLUS, ONEMINUS, ABS, RANDOM, MAXFN, MINFN, NOTEQ,
+NUMEQ, LESS, LESSEQ, GREATER, GREATEREQ, PLUSP, MINUSP, ZEROP, ODDP, EVENP, INTEGERP, NUMBERP, FLOATFN,
+FLOATP, SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, EXP, SQRT, LOG, EXPT, CEILING, FLOOR, TRUNCATE,
+ROUND, CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRINGEQ, STRINGLESS, STRINGGREATER, SORT, STRINGFN,
 CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIOR, LOGXOR, LOGNOT, ASH,
 LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
 WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
 DIGITALWRITE, ANALOGREAD, ANALOGREFERENCE, ANALOGREADRESOLUTION, ANALOGWRITE, ANALOGWRITERESOLUTION,
-DELAY, MILLIS, SLEEP, NOTE, REGISTER, EDIT, PPRINT, PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, DRAWPIXEL,
-DRAWLINE, DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT, FILLROUNDRECT, DRAWTRIANGLE,
-FILLTRIANGLE, DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP, FILLSCREEN, SETROTATION,
-INVERTDISPLAY, KEYWORDS,
+DELAY, MILLIS, SLEEP, NOTE, REGISTER, EDIT, PPRINT, PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, AVAILABLE,
+WIFISERVER, WIFISOFTAP, CONNECTED, WIFILOCALIP, WIFICONNECT, DRAWPIXEL, DRAWLINE, DRAWRECT, FILLRECT,
+DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT, FILLROUNDRECT, DRAWTRIANGLE, FILLTRIANGLE, DRAWCHAR, SETCURSOR,
+SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP, FILLSCREEN, SETROTATION, INVERTDISPLAY, KEYWORDS, 
 K_LED_BUILTIN, K_HIGH, K_LOW,
 #if defined(CPU_ATSAMD21)
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_AR_DEFAULT, K_AR_INTERNAL1V0, K_AR_INTERNAL1V65,
@@ -329,8 +341,8 @@ K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_OUTPUT_OPENDRAIN,
 #elif defined(CPU_MAX32620)
 K_INPUT, K_INPUT_PULLUP, K_OUTPUT, K_DEFAULT, K_EXTERNAL,
 #elif defined(CPU_RP2040)
-K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT,
-K_GPIO_IN, K_GPIO_OUT, K_GPIO_OUT_SET, K_GPIO_OUT_CLR, K_GPIO_OUT_XOR, K_GPIO_OE, K_GPIO_OE_SET, K_GPIO_OE_CLR, K_GPIO_OE_XOR,
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT, K_GPIO_IN, K_GPIO_OUT, K_GPIO_OUT_SET,
+K_GPIO_OUT_CLR, K_GPIO_OUT_XOR, K_GPIO_OE, K_GPIO_OE_SET, K_GPIO_OE_CLR, K_GPIO_OE_XOR,
 #endif
 USERFUNCTIONS, ENDFUNCTIONS, SET_SIZE = INT_MAX };
 
@@ -710,7 +722,7 @@ const int sck = PIN_QSPI_SCK, ssel = PIN_QSPI_CS, mosi = PIN_QSPI_IO0, miso = PI
 void FlashBusy () {
   digitalWrite(ssel, 0);
   FlashWrite(READSTATUS);
-  while (FlashReadByte() & 1 != 0);
+  while ((FlashReadByte() & 1) != 0);
   digitalWrite(ssel, 1);
 }
 
@@ -745,7 +757,7 @@ void FlashWriteEnable () {
 }
 
 bool FlashCheck () {
-  uint8_t manID, devID;
+  uint8_t devID;
   digitalWrite(ssel, HIGH); pinMode(ssel, OUTPUT);
   pinMode(sck, OUTPUT);
   pinMode(mosi, OUTPUT);
@@ -753,7 +765,7 @@ bool FlashCheck () {
   digitalWrite(sck, LOW); digitalWrite(mosi, HIGH);
   digitalWrite(ssel, LOW);
   FlashWrite(READID);
-  for(uint8_t i=0; i<4; i++) manID = FlashReadByte();
+  for (uint8_t i=0; i<4; i++) FlashReadByte();
   devID = FlashReadByte();
   digitalWrite(ssel, HIGH);
   return (devID == 0x14 || devID == 0x15 || devID == 0x16); // true = found correct device
@@ -761,9 +773,9 @@ bool FlashCheck () {
 
 void FlashBeginWrite (uint32_t *addr, uint32_t bytes) {
   *addr = 0;
-  uint32_t blocks = (bytes+65535)/65536;
+  uint8_t blocks = (bytes+65535)/65536;
   // Erase 64K
-  for (int b=0; b<blocks; b++) {
+  for (uint8_t b=0; b<blocks; b++) {
     FlashWriteEnable();
     digitalWrite(ssel, 0);
     FlashWrite(BLOCK64K);
@@ -1001,6 +1013,7 @@ int loadimage (object *arg) {
   gc(NULL, NULL);
   return imagesize;
 #elif defined(DATAFLASH) || defined(EEPROMFLASH) || defined(EEPROMLIBRARY)
+  (void) arg;
   if (!FlashCheck()) error2(LOADIMAGE, PSTR("flash not available"));
   uint32_t addr;
   FlashBeginRead(&addr);
@@ -1544,6 +1557,24 @@ object *lispstring (char *s) {
   return obj;
 }
 
+char *cstring (object *form, char *buffer, int buflen) {
+  int index = 0;
+  form = cdr(form);
+  while (form != NULL) {
+    int chars = form->integer;
+    for (int i=(sizeof(int)-1)*8; i>=0; i=i-8) {
+      char ch = chars>>i & 0xFF;
+      if (ch) {
+        if (index >= buflen-1) error2(NIL, PSTR("no room for string"));
+        buffer[index++] = ch;
+      }
+    }
+    form = car(form);
+  }
+  buffer[index] = '\0';
+  return buffer;
+}
+
 // Lookup variable in environment
 
 object *value (symbol_t n, object *env) {
@@ -1750,18 +1781,21 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 // Streams
 
 // Simplify board differences
-#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(ARDUINO_RASPBERRY_PI_PICO)
+#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W)
 #define ULISP_SPI1
 #endif
-#if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040)
+#if defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040)
 #define ULISP_I2C1
 #endif
 #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 #define ULISP_SERIAL3
-#elif defined(ARDUINO_RASPBERRY_PI_PICO)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W)
 #define ULISP_SERIAL2
-#elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040)
+#elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
 #define ULISP_SERIAL1
+#endif
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W)
+#define ULISP_WIFI
 #endif
 
 inline int spiread () { return SPI.transfer(0); }
@@ -1790,6 +1824,20 @@ inline int SDread () {
     return temp;
   }
   return SDgfile.read();
+}
+#endif
+
+#if defined(ULISP_WIFI)
+WiFiClient client;
+WiFiServer server(80);
+
+inline int WiFiread () {
+  if (LastChar) {
+    char temp = LastChar;
+    LastChar = 0;
+    return temp;
+  }
+  return client.read();
 }
 #endif
 
@@ -1862,6 +1910,9 @@ gfun_t gstreamfun (object *args) {
   #if defined(sdcardsupport)
   else if (streamtype == SDSTREAM) gfun = (gfun_t)SDread;
   #endif
+  #if defined(ULISP_WIFI)
+  else if (streamtype == WIFISTREAM) gfun = (gfun_t)WiFiread;
+  #endif
   else error2(NIL, PSTR("unknown stream type"));
   return gfun;
 }
@@ -1874,15 +1925,21 @@ inline void i2cwrite (char c) { I2Cwrite(&Wire, c); }
 #if defined(ULISP_I2C1)
 inline void i2c1write (char c) { I2Cwrite(&Wire1, c); }
 #endif
-#if defined(SERIAL3)
+#if defined(ULISP_SERIAL3)
 inline void serial1write (char c) { Serial1.write(c); }
 inline void serial2write (char c) { Serial2.write(c); }
 inline void serial3write (char c) { Serial3.write(c); }
-#elif defined(SERIAL1)
+#elif defined(ULISP_SERIAL2)
+inline void serial2write (char c) { Serial2.write(c); }
+inline void serial1write (char c) { Serial1.write(c); }
+#elif defined(ULISP_SERIAL1)
 inline void serial1write (char c) { Serial1.write(c); }
 #endif
 #if defined(sdcardsupport)
 inline void SDwrite (char c) { SDpfile.write(c); }
+#endif
+#if defined(ULISP_WIFI)
+inline void WiFiwrite (char c) { client.write(c); }
 #endif
 #if defined(gfxsupport)
 inline void gfxwrite (char c) { tft.write(c); }
@@ -1908,14 +1965,14 @@ pfun_t pstreamfun (object *args) {
     #endif
   } else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
-    #if defined(SERIAL3)
+    #if defined(ULISP_SERIAL3)
     else if (address == 1) pfun = serial1write;
     else if (address == 2) pfun = serial2write;
     else if (address == 3) pfun = serial3write;
-    #elif defined(SERIAL2)
+    #elif defined(ULISP_SERIAL2)
     else if (address == 1) pfun = serial1write;
     else if (address == 2) pfun = serial2write;
-    #elif defined(SERIAL1)
+    #elif defined(ULISP_SERIAL1)
     else if (address == 1) pfun = serial1write;
     #endif
   }
@@ -1927,6 +1984,9 @@ pfun_t pstreamfun (object *args) {
   #endif
   #if defined(gfxsupport)
   else if (streamtype == GFXSTREAM) pfun = (pfun_t)gfxwrite;
+  #endif
+  #if defined(ULISP_WIFI)
+  else if (streamtype == WIFISTREAM) pfun = (pfun_t)WiFiwrite;
   #endif
   else error2(NIL, PSTR("unknown stream type"));
   return pfun;
@@ -1975,7 +2035,7 @@ void checkanalogread (int pin) {
   if (!((pin>=14 && pin<=27))) error(ANALOGREAD, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(ANALOGREAD, invalidpin, number(pin));
-#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
   if (!(pin>=26 && pin<=29)) error(ANALOGREAD, invalidpin, number(pin));
 #endif
 }
@@ -2021,7 +2081,7 @@ void checkanalogwrite (int pin) {
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || (pin>=33 && pin<=39))) error(ANALOGWRITE, invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || pin==33 || (pin>=36 && pin<=37))) error(ANALOGWRITE, invalidpin, number(pin));
-#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
   if (!(pin>=0 && pin<=29)) error(ANALOGWRITE, invalidpin, number(pin));
 #endif
 }
@@ -2031,17 +2091,21 @@ void checkanalogwrite (int pin) {
 const int scale[] PROGMEM = {4186,4435,4699,4978,5274,5588,5920,6272,6645,7040,7459,7902};
 
 void playnote (int pin, int note, int octave) {
-#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
+#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
   if (!(pin>=26 && pin<=29)) error(ANALOGREAD, invalidpin, number(pin));
   int prescaler = 8 - octave - note/12;
   if (prescaler<0 || prescaler>8) error(NOTE, PSTR("octave out of range"), number(prescaler));
   tone(pin, scale[note%12]>>prescaler);
+#else
+  (void) pin, (void) note, (void) octave;
 #endif
 }
 
 void nonote (int pin) {
-#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
+#if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
   noTone(pin);
+#else
+  (void) pin;
 #endif
 }
 
@@ -2752,6 +2816,40 @@ object *sp_withgfx (object *args, object *env) {
 #endif
 }
 
+object *sp_withclient (object *args, object *env) {
+  #if defined(ULISP_WIFI)
+  object *params = first(args);
+  object *var = first(params);
+  char buffer[BUFFERSIZE];
+  params = cdr(params);
+  int n;
+  if (params == NULL) {
+    client = server.available();
+    if (!client) return nil;
+    n = 2;
+  } else {
+    object *address = eval(first(params), env);
+    object *port = eval(second(params), env);
+    int success;
+    if (stringp(address)) success = client.connect(cstring(address, buffer, BUFFERSIZE), checkinteger(WITHCLIENT, port));
+    else if (integerp(address)) success = client.connect(address->integer, checkinteger(WITHCLIENT, port));
+    else error2(WITHCLIENT, PSTR("invalid address"));
+    if (!success) return nil;
+    n = 1;
+  }
+  object *pair = cons(var, stream(WIFISTREAM, n));
+  push(pair,env);
+  object *forms = cdr(args);
+  object *result = eval(tf_progn(forms,env), env);
+  client.stop();
+  return result;
+  #else
+  (void) args, (void) env;
+  error2(WITHCLIENT, PSTR("not supported"));
+  return nil;
+  #endif
+}
+
 // Assembler
 
 object *sp_defcode (object *args, object *env) {
@@ -2776,7 +2874,6 @@ object *sp_defcode (object *args, object *env) {
   object *pcpair = cons(bsymbol(PSTAR), number(0));
   push(pcpair,env);
 
-
   args = cdr(args);
 
   // Make labels into local variables
@@ -2788,7 +2885,7 @@ object *sp_defcode (object *args, object *env) {
       push(pair,env);
     }
     entries = cdr(entries);
-  }
+  } 
 
   // First pass
   int origin = 0;
@@ -2807,7 +2904,7 @@ object *sp_defcode (object *args, object *env) {
     globals = cdr(globals);
   }
   if (codesize > CODESIZE) error(DEFCODE, PSTR("not enough room for code"), var);
-
+  
   // Compact the code block, removing gaps
   origin = 0;
   object *block;
@@ -2824,7 +2921,7 @@ object *sp_defcode (object *args, object *env) {
           if (startblock(codeid) < smallest && startblock(codeid) >= origin) {
             smallest = startblock(codeid);
             block = codeid;
-          }
+          }        
         }
       }
       globals = cdr(globals);
@@ -4240,7 +4337,7 @@ object *fn_analogread (object *args, object *env) {
 object *fn_analogreference (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
+  #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
   error2(ANALOGREFERENCE, PSTR("not supported"));
   #else
   analogReference((eAnalogReference)checkkeyword(ANALOGREFERENCE, arg));
@@ -4519,6 +4616,99 @@ object *fn_listlibrary (object *args, object *env) {
   return bsymbol(NOTHING);
 }
 
+// Wi-fi
+
+object *fn_available (object *args, object *env) {
+  #if defined (ULISP_WIFI)
+  (void) env;
+  if (isstream(first(args))>>8 != WIFISTREAM) error2(AVAILABLE, PSTR("invalid stream"));
+  return number(client.available());
+  #else
+  (void) args, (void) env;
+  error2(AVAILABLE, PSTR("not supported"));
+  return nil;
+  #endif
+}
+
+object *fn_wifiserver (object *args, object *env) {
+  #if defined (ULISP_WIFI)
+  (void) args, (void) env;
+  server.begin();
+  return nil;
+  #else
+  (void) args, (void) env;
+  error2(WIFISERVER, PSTR("not supported"));
+  return nil;
+  #endif
+}
+
+object *fn_wifisoftap (object *args, object *env) {
+  #if defined (ULISP_WIFI)
+  (void) env;
+  char ssid[33], pass[65];
+  object *first = first(args); args = cdr(args);
+  if (args == NULL) WiFi.beginAP(cstring(first, ssid, 33));
+  else {
+    object *second = first(args);
+    args = cdr(args);
+    int channel = 1;
+    if (args != NULL) {
+      channel = checkinteger(WIFISOFTAP, first(args));
+      args = cdr(args);
+    }
+    WiFi.beginAP(cstring(first, ssid, 33), cstring(second, pass, 65), channel);
+  }
+  return lispstring((char*)"192.168.4.1");
+  #else
+  (void) args, (void) env;
+  error2(WIFISOFTAP, PSTR("not supported"));
+  return nil;
+  #endif
+}
+
+object *fn_connected (object *args, object *env) {
+  #if defined (ULISP_WIFI)
+  (void) env;
+  if (isstream(first(args))>>8 != WIFISTREAM) error2(CONNECTED, PSTR("invalid stream"));
+  return client.connected() ? tee : nil;
+  #else
+  (void) args, (void) env;
+  error2(CONNECTED, PSTR("not supported"));
+  return nil;
+  #endif
+}
+
+object *fn_wifilocalip (object *args, object *env) {
+  #if defined (ULISP_WIFI)
+  (void) args, (void) env;
+  return lispstring((char*)WiFi.localIP().toString().c_str());
+  #else
+  (void) args, (void) env;
+  error2(WIFILOCALIP, PSTR("not supported"));
+  return nil;
+  #endif
+}
+
+object *fn_wificonnect (object *args, object *env) {
+  #if defined (ULISP_WIFI)
+  (void) env;
+  char ssid[33], pass[65];
+  if (args == NULL) { WiFi.disconnect(); return nil; }
+  if (cdr(args) == NULL) WiFi.begin(cstring(first(args), ssid, 33));
+  else WiFi.begin(cstring(first(args), ssid, 33), cstring(second(args), pass, 65));
+  int result = WiFi.waitForConnectResult();
+  if (result == WL_CONNECTED) return lispstring((char*)WiFi.localIP().toString().c_str());
+  else if (result == WL_NO_SSID_AVAIL) error2(WIFICONNECT, PSTR("network not found"));
+  else if (result == WL_CONNECT_FAILED) error2(WIFICONNECT, PSTR("connection failed"));
+  else error2(WIFICONNECT, PSTR("unable to connect"));
+  return nil;
+  #else
+  (void) args, (void) env;
+  error2(WIFICONNECT, PSTR("not supported"));
+  return nil;
+  #endif
+}
+
 // Graphics functions
 
 object *fn_drawpixel (object *args, object *env) {
@@ -4786,232 +4976,203 @@ const char string34[] PROGMEM = "with-i2c";
 const char string35[] PROGMEM = "with-spi";
 const char string36[] PROGMEM = "with-sd-card";
 const char string37[] PROGMEM = "with-gfx";
-const char string38[] PROGMEM = "defcode";
-const char string39[] PROGMEM = "";
-const char string40[] PROGMEM = "progn";
-const char string41[] PROGMEM = "if";
-const char string42[] PROGMEM = "cond";
-const char string43[] PROGMEM = "when";
-const char string44[] PROGMEM = "unless";
-const char string45[] PROGMEM = "case";
-const char string46[] PROGMEM = "and";
-const char string47[] PROGMEM = "";
-const char string48[] PROGMEM = "not";
-const char string49[] PROGMEM = "null";
-const char string50[] PROGMEM = "cons";
-const char string51[] PROGMEM = "atom";
-const char string52[] PROGMEM = "listp";
-const char string53[] PROGMEM = "consp";
-const char string54[] PROGMEM = "symbolp";
-const char string55[] PROGMEM = "arrayp";
-const char string56[] PROGMEM = "boundp";
-const char string57[] PROGMEM = "set";
-const char string58[] PROGMEM = "streamp";
-const char string59[] PROGMEM = "eq";
-const char string60[] PROGMEM = "car";
-const char string61[] PROGMEM = "first";
-const char string62[] PROGMEM = "cdr";
-const char string63[] PROGMEM = "rest";
-const char string64[] PROGMEM = "caar";
-const char string65[] PROGMEM = "cadr";
-const char string66[] PROGMEM = "second";
-const char string67[] PROGMEM = "cdar";
-const char string68[] PROGMEM = "cddr";
-const char string69[] PROGMEM = "caaar";
-const char string70[] PROGMEM = "caadr";
-const char string71[] PROGMEM = "cadar";
-const char string72[] PROGMEM = "caddr";
-const char string73[] PROGMEM = "third";
-const char string74[] PROGMEM = "cdaar";
-const char string75[] PROGMEM = "cdadr";
-const char string76[] PROGMEM = "cddar";
-const char string77[] PROGMEM = "cdddr";
-const char string78[] PROGMEM = "length";
-const char string79[] PROGMEM = "array-dimensions";
-const char string80[] PROGMEM = "list";
-const char string81[] PROGMEM = "make-array";
-const char string82[] PROGMEM = "reverse";
-const char string83[] PROGMEM = "nth";
-const char string84[] PROGMEM = "aref";
-const char string85[] PROGMEM = "assoc";
-const char string86[] PROGMEM = "member";
-const char string87[] PROGMEM = "apply";
-const char string88[] PROGMEM = "funcall";
-const char string89[] PROGMEM = "append";
-const char string90[] PROGMEM = "mapc";
-const char string91[] PROGMEM = "mapcar";
-const char string92[] PROGMEM = "mapcan";
-const char string93[] PROGMEM = "+";
-const char string94[] PROGMEM = "-";
-const char string95[] PROGMEM = "*";
-const char string96[] PROGMEM = "/";
-const char string97[] PROGMEM = "mod";
-const char string98[] PROGMEM = "1+";
-const char string99[] PROGMEM = "1-";
-const char string100[] PROGMEM = "abs";
-const char string101[] PROGMEM = "random";
-const char string102[] PROGMEM = "max";
-const char string103[] PROGMEM = "min";
-const char string104[] PROGMEM = "/=";
-const char string105[] PROGMEM = "=";
-const char string106[] PROGMEM = "<";
-const char string107[] PROGMEM = "<=";
-const char string108[] PROGMEM = ">";
-const char string109[] PROGMEM = ">=";
-const char string110[] PROGMEM = "plusp";
-const char string111[] PROGMEM = "minusp";
-const char string112[] PROGMEM = "zerop";
-const char string113[] PROGMEM = "oddp";
-const char string114[] PROGMEM = "evenp";
-const char string115[] PROGMEM = "integerp";
-const char string116[] PROGMEM = "numberp";
-const char string117[] PROGMEM = "float";
-const char string118[] PROGMEM = "floatp";
-const char string119[] PROGMEM = "sin";
-const char string120[] PROGMEM = "cos";
-const char string121[] PROGMEM = "tan";
-const char string122[] PROGMEM = "asin";
-const char string123[] PROGMEM = "acos";
-const char string124[] PROGMEM = "atan";
-const char string125[] PROGMEM = "sinh";
-const char string126[] PROGMEM = "cosh";
-const char string127[] PROGMEM = "tanh";
-const char string128[] PROGMEM = "exp";
-const char string129[] PROGMEM = "sqrt";
-const char string130[] PROGMEM = "log";
-const char string131[] PROGMEM = "expt";
-const char string132[] PROGMEM = "ceiling";
-const char string133[] PROGMEM = "floor";
-const char string134[] PROGMEM = "truncate";
-const char string135[] PROGMEM = "round";
-const char string136[] PROGMEM = "char";
-const char string137[] PROGMEM = "char-code";
-const char string138[] PROGMEM = "code-char";
-const char string139[] PROGMEM = "characterp";
-const char string140[] PROGMEM = "stringp";
-const char string141[] PROGMEM = "string=";
-const char string142[] PROGMEM = "string<";
-const char string143[] PROGMEM = "string>";
-const char string144[] PROGMEM = "sort";
-const char string145[] PROGMEM = "string";
-const char string146[] PROGMEM = "concatenate";
-const char string147[] PROGMEM = "subseq";
-const char string148[] PROGMEM = "read-from-string";
-const char string149[] PROGMEM = "princ-to-string";
-const char string150[] PROGMEM = "prin1-to-string";
-const char string151[] PROGMEM = "logand";
-const char string152[] PROGMEM = "logior";
-const char string153[] PROGMEM = "logxor";
-const char string154[] PROGMEM = "lognot";
-const char string155[] PROGMEM = "ash";
-const char string156[] PROGMEM = "logbitp";
-const char string157[] PROGMEM = "eval";
-const char string158[] PROGMEM = "globals";
-const char string159[] PROGMEM = "locals";
-const char string160[] PROGMEM = "makunbound";
-const char string161[] PROGMEM = "break";
-const char string162[] PROGMEM = "read";
-const char string163[] PROGMEM = "prin1";
-const char string164[] PROGMEM = "print";
-const char string165[] PROGMEM = "princ";
-const char string166[] PROGMEM = "terpri";
-const char string167[] PROGMEM = "read-byte";
-const char string168[] PROGMEM = "read-line";
-const char string169[] PROGMEM = "write-byte";
-const char string170[] PROGMEM = "write-string";
-const char string171[] PROGMEM = "write-line";
-const char string172[] PROGMEM = "restart-i2c";
-const char string173[] PROGMEM = "gc";
-const char string174[] PROGMEM = "room";
-const char string175[] PROGMEM = "save-image";
-const char string176[] PROGMEM = "load-image";
-const char string177[] PROGMEM = "cls";
-const char string178[] PROGMEM = "pinmode";
-const char string179[] PROGMEM = "digitalread";
-const char string180[] PROGMEM = "digitalwrite";
-const char string181[] PROGMEM = "analogread";
-const char string182[] PROGMEM = "analogreference";
-const char string183[] PROGMEM = "analogreadresolution";
-const char string184[] PROGMEM = "analogwrite";
-const char string185[] PROGMEM = "analogwriteresolution";
-const char string186[] PROGMEM = "delay";
-const char string187[] PROGMEM = "millis";
-const char string188[] PROGMEM = "sleep";
-const char string189[] PROGMEM = "note";
-const char string190[] PROGMEM = "register";
-const char string191[] PROGMEM = "edit";
-const char string192[] PROGMEM = "pprint";
-const char string193[] PROGMEM = "pprintall";
-const char string194[] PROGMEM = "format";
-const char string195[] PROGMEM = "require";
-const char string196[] PROGMEM = "list-library";
-const char string197[] PROGMEM = "draw-pixel";
-const char string198[] PROGMEM = "draw-line";
-const char string199[] PROGMEM = "draw-rect";
-const char string200[] PROGMEM = "fill-rect";
-const char string201[] PROGMEM = "draw-circle";
-const char string202[] PROGMEM = "fill-circle";
-const char string203[] PROGMEM = "draw-round-rect";
-const char string204[] PROGMEM = "fill-round-rect";
-const char string205[] PROGMEM = "draw-triangle";
-const char string206[] PROGMEM = "fill-triangle";
-const char string207[] PROGMEM = "draw-char";
-const char string208[] PROGMEM = "set-cursor";
-const char string209[] PROGMEM = "set-text-color";
-const char string210[] PROGMEM = "set-text-size";
-const char string211[] PROGMEM = "set-text-wrap";
-const char string212[] PROGMEM = "fill-screen";
-const char string213[] PROGMEM = "set-rotation";
-const char string214[] PROGMEM = "invert-display";
-const char string215[] PROGMEM = "";
-const char string216[] PROGMEM = ":led-builtin";
-const char string217[] PROGMEM = ":high";
-const char string218[] PROGMEM = ":low";
+const char string38[] PROGMEM = "with-client";
+const char string39[] PROGMEM = "defcode";
+const char string40[] PROGMEM = "";
+const char string41[] PROGMEM = "progn";
+const char string42[] PROGMEM = "if";
+const char string43[] PROGMEM = "cond";
+const char string44[] PROGMEM = "when";
+const char string45[] PROGMEM = "unless";
+const char string46[] PROGMEM = "case";
+const char string47[] PROGMEM = "and";
+const char string48[] PROGMEM = "";
+const char string49[] PROGMEM = "not";
+const char string50[] PROGMEM = "null";
+const char string51[] PROGMEM = "cons";
+const char string52[] PROGMEM = "atom";
+const char string53[] PROGMEM = "listp";
+const char string54[] PROGMEM = "consp";
+const char string55[] PROGMEM = "symbolp";
+const char string56[] PROGMEM = "arrayp";
+const char string57[] PROGMEM = "boundp";
+const char string58[] PROGMEM = "set";
+const char string59[] PROGMEM = "streamp";
+const char string60[] PROGMEM = "eq";
+const char string61[] PROGMEM = "car";
+const char string62[] PROGMEM = "first";
+const char string63[] PROGMEM = "cdr";
+const char string64[] PROGMEM = "rest";
+const char string65[] PROGMEM = "caar";
+const char string66[] PROGMEM = "cadr";
+const char string67[] PROGMEM = "second";
+const char string68[] PROGMEM = "cdar";
+const char string69[] PROGMEM = "cddr";
+const char string70[] PROGMEM = "caaar";
+const char string71[] PROGMEM = "caadr";
+const char string72[] PROGMEM = "cadar";
+const char string73[] PROGMEM = "caddr";
+const char string74[] PROGMEM = "third";
+const char string75[] PROGMEM = "cdaar";
+const char string76[] PROGMEM = "cdadr";
+const char string77[] PROGMEM = "cddar";
+const char string78[] PROGMEM = "cdddr";
+const char string79[] PROGMEM = "length";
+const char string80[] PROGMEM = "array-dimensions";
+const char string81[] PROGMEM = "list";
+const char string82[] PROGMEM = "make-array";
+const char string83[] PROGMEM = "reverse";
+const char string84[] PROGMEM = "nth";
+const char string85[] PROGMEM = "aref";
+const char string86[] PROGMEM = "assoc";
+const char string87[] PROGMEM = "member";
+const char string88[] PROGMEM = "apply";
+const char string89[] PROGMEM = "funcall";
+const char string90[] PROGMEM = "append";
+const char string91[] PROGMEM = "mapc";
+const char string92[] PROGMEM = "mapcar";
+const char string93[] PROGMEM = "mapcan";
+const char string94[] PROGMEM = "+";
+const char string95[] PROGMEM = "-";
+const char string96[] PROGMEM = "*";
+const char string97[] PROGMEM = "/";
+const char string98[] PROGMEM = "mod";
+const char string99[] PROGMEM = "1+";
+const char string100[] PROGMEM = "1-";
+const char string101[] PROGMEM = "abs";
+const char string102[] PROGMEM = "random";
+const char string103[] PROGMEM = "max";
+const char string104[] PROGMEM = "min";
+const char string105[] PROGMEM = "/=";
+const char string106[] PROGMEM = "=";
+const char string107[] PROGMEM = "<";
+const char string108[] PROGMEM = "<=";
+const char string109[] PROGMEM = ">";
+const char string110[] PROGMEM = ">=";
+const char string111[] PROGMEM = "plusp";
+const char string112[] PROGMEM = "minusp";
+const char string113[] PROGMEM = "zerop";
+const char string114[] PROGMEM = "oddp";
+const char string115[] PROGMEM = "evenp";
+const char string116[] PROGMEM = "integerp";
+const char string117[] PROGMEM = "numberp";
+const char string118[] PROGMEM = "float";
+const char string119[] PROGMEM = "floatp";
+const char string120[] PROGMEM = "sin";
+const char string121[] PROGMEM = "cos";
+const char string122[] PROGMEM = "tan";
+const char string123[] PROGMEM = "asin";
+const char string124[] PROGMEM = "acos";
+const char string125[] PROGMEM = "atan";
+const char string126[] PROGMEM = "sinh";
+const char string127[] PROGMEM = "cosh";
+const char string128[] PROGMEM = "tanh";
+const char string129[] PROGMEM = "exp";
+const char string130[] PROGMEM = "sqrt";
+const char string131[] PROGMEM = "log";
+const char string132[] PROGMEM = "expt";
+const char string133[] PROGMEM = "ceiling";
+const char string134[] PROGMEM = "floor";
+const char string135[] PROGMEM = "truncate";
+const char string136[] PROGMEM = "round";
+const char string137[] PROGMEM = "char";
+const char string138[] PROGMEM = "char-code";
+const char string139[] PROGMEM = "code-char";
+const char string140[] PROGMEM = "characterp";
+const char string141[] PROGMEM = "stringp";
+const char string142[] PROGMEM = "string=";
+const char string143[] PROGMEM = "string<";
+const char string144[] PROGMEM = "string>";
+const char string145[] PROGMEM = "sort";
+const char string146[] PROGMEM = "string";
+const char string147[] PROGMEM = "concatenate";
+const char string148[] PROGMEM = "subseq";
+const char string149[] PROGMEM = "read-from-string";
+const char string150[] PROGMEM = "princ-to-string";
+const char string151[] PROGMEM = "prin1-to-string";
+const char string152[] PROGMEM = "logand";
+const char string153[] PROGMEM = "logior";
+const char string154[] PROGMEM = "logxor";
+const char string155[] PROGMEM = "lognot";
+const char string156[] PROGMEM = "ash";
+const char string157[] PROGMEM = "logbitp";
+const char string158[] PROGMEM = "eval";
+const char string159[] PROGMEM = "globals";
+const char string160[] PROGMEM = "locals";
+const char string161[] PROGMEM = "makunbound";
+const char string162[] PROGMEM = "break";
+const char string163[] PROGMEM = "read";
+const char string164[] PROGMEM = "prin1";
+const char string165[] PROGMEM = "print";
+const char string166[] PROGMEM = "princ";
+const char string167[] PROGMEM = "terpri";
+const char string168[] PROGMEM = "read-byte";
+const char string169[] PROGMEM = "read-line";
+const char string170[] PROGMEM = "write-byte";
+const char string171[] PROGMEM = "write-string";
+const char string172[] PROGMEM = "write-line";
+const char string173[] PROGMEM = "restart-i2c";
+const char string174[] PROGMEM = "gc";
+const char string175[] PROGMEM = "room";
+const char string176[] PROGMEM = "save-image";
+const char string177[] PROGMEM = "load-image";
+const char string178[] PROGMEM = "cls";
+const char string179[] PROGMEM = "pinmode";
+const char string180[] PROGMEM = "digitalread";
+const char string181[] PROGMEM = "digitalwrite";
+const char string182[] PROGMEM = "analogread";
+const char string183[] PROGMEM = "analogreference";
+const char string184[] PROGMEM = "analogreadresolution";
+const char string185[] PROGMEM = "analogwrite";
+const char string186[] PROGMEM = "analogwriteresolution";
+const char string187[] PROGMEM = "delay";
+const char string188[] PROGMEM = "millis";
+const char string189[] PROGMEM = "sleep";
+const char string190[] PROGMEM = "note";
+const char string191[] PROGMEM = "register";
+const char string192[] PROGMEM = "edit";
+const char string193[] PROGMEM = "pprint";
+const char string194[] PROGMEM = "pprintall";
+const char string195[] PROGMEM = "format";
+const char string196[] PROGMEM = "require";
+const char string197[] PROGMEM = "list-library";
+const char string198[] PROGMEM = "available";
+const char string199[] PROGMEM = "wifi-server";
+const char string200[] PROGMEM = "wifi-softap";
+const char string201[] PROGMEM = "connected";
+const char string202[] PROGMEM = "wifi-localip";
+const char string203[] PROGMEM = "wifi-connect";
+const char string204[] PROGMEM = "draw-pixel";
+const char string205[] PROGMEM = "draw-line";
+const char string206[] PROGMEM = "draw-rect";
+const char string207[] PROGMEM = "fill-rect";
+const char string208[] PROGMEM = "draw-circle";
+const char string209[] PROGMEM = "fill-circle";
+const char string210[] PROGMEM = "draw-round-rect";
+const char string211[] PROGMEM = "fill-round-rect";
+const char string212[] PROGMEM = "draw-triangle";
+const char string213[] PROGMEM = "fill-triangle";
+const char string214[] PROGMEM = "draw-char";
+const char string215[] PROGMEM = "set-cursor";
+const char string216[] PROGMEM = "set-text-color";
+const char string217[] PROGMEM = "set-text-size";
+const char string218[] PROGMEM = "set-text-wrap";
+const char string219[] PROGMEM = "fill-screen";
+const char string220[] PROGMEM = "set-rotation";
+const char string221[] PROGMEM = "invert-display";
+const char string222[] PROGMEM = "";
+const char string223[] PROGMEM = ":led-builtin";
+const char string224[] PROGMEM = ":high";
+const char string225[] PROGMEM = ":low";
 #if defined(CPU_ATSAMD21)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":input-pulldown";
-const char string222[] PROGMEM = ":output";
-const char string223[] PROGMEM = ":ar-default";
-const char string224[] PROGMEM = ":ar-internal1v0";
-const char string225[] PROGMEM = ":ar-internal1v65";
-const char string226[] PROGMEM = ":ar-internal2v23";
-const char string227[] PROGMEM = ":ar-external";
-const char string228[] PROGMEM = ":pa-dir";
-const char string229[] PROGMEM = ":pa-dirclr";
-const char string230[] PROGMEM = ":pa-dirset";
-const char string231[] PROGMEM = ":pa-dirtgl";
-const char string232[] PROGMEM = ":pa-out";
-const char string233[] PROGMEM = ":pa-outclr";
-const char string234[] PROGMEM = ":pa-outset";
-const char string235[] PROGMEM = ":pa-outtgl";
-const char string236[] PROGMEM = ":pa-in";
-const char string237[] PROGMEM = ":pb-dir";
-const char string238[] PROGMEM = ":pb-dirclr";
-const char string239[] PROGMEM = ":pb-dirset";
-const char string240[] PROGMEM = ":pb-dirtgl";
-const char string241[] PROGMEM = ":pb-out";
-const char string242[] PROGMEM = ":pb-outclr";
-const char string243[] PROGMEM = ":pb-outset";
-const char string244[] PROGMEM = ":pb-outtgl";
-const char string245[] PROGMEM = ":pb-in";
-const char string246[] PROGMEM = "";
-#elif defined(CPU_ATSAMD51)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":input-pulldown";
-const char string222[] PROGMEM = ":output";
-const char string223[] PROGMEM = ":ar-default";
-const char string224[] PROGMEM = ":ar-internal1v0";
-const char string225[] PROGMEM = ":ar-internal1v1";
-const char string226[] PROGMEM = ":ar-internal1v2";
-const char string227[] PROGMEM = ":ar-internal1v25";
-const char string228[] PROGMEM = ":ar-internal1v65";
-const char string229[] PROGMEM = ":ar-internal2v0";
-const char string230[] PROGMEM = ":ar-internal2v2";
-const char string231[] PROGMEM = ":ar-internal2v23";
-const char string232[] PROGMEM = ":ar-internal2v4";
-const char string233[] PROGMEM = ":ar-internal2v5";
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":input-pulldown";
+const char string229[] PROGMEM = ":output";
+const char string230[] PROGMEM = ":ar-default";
+const char string231[] PROGMEM = ":ar-internal1v0";
+const char string232[] PROGMEM = ":ar-internal1v65";
+const char string233[] PROGMEM = ":ar-internal2v23";
 const char string234[] PROGMEM = ":ar-external";
 const char string235[] PROGMEM = ":pa-dir";
 const char string236[] PROGMEM = ":pa-dirclr";
@@ -5032,104 +5193,140 @@ const char string250[] PROGMEM = ":pb-outset";
 const char string251[] PROGMEM = ":pb-outtgl";
 const char string252[] PROGMEM = ":pb-in";
 const char string253[] PROGMEM = "";
+#elif defined(CPU_ATSAMD51)
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":input-pulldown";
+const char string229[] PROGMEM = ":output";
+const char string230[] PROGMEM = ":ar-default";
+const char string231[] PROGMEM = ":ar-internal1v0";
+const char string232[] PROGMEM = ":ar-internal1v1";
+const char string233[] PROGMEM = ":ar-internal1v2";
+const char string234[] PROGMEM = ":ar-internal1v25";
+const char string235[] PROGMEM = ":ar-internal1v65";
+const char string236[] PROGMEM = ":ar-internal2v0";
+const char string237[] PROGMEM = ":ar-internal2v2";
+const char string238[] PROGMEM = ":ar-internal2v23";
+const char string239[] PROGMEM = ":ar-internal2v4";
+const char string240[] PROGMEM = ":ar-internal2v5";
+const char string241[] PROGMEM = ":ar-external";
+const char string242[] PROGMEM = ":pa-dir";
+const char string243[] PROGMEM = ":pa-dirclr";
+const char string244[] PROGMEM = ":pa-dirset";
+const char string245[] PROGMEM = ":pa-dirtgl";
+const char string246[] PROGMEM = ":pa-out";
+const char string247[] PROGMEM = ":pa-outclr";
+const char string248[] PROGMEM = ":pa-outset";
+const char string249[] PROGMEM = ":pa-outtgl";
+const char string250[] PROGMEM = ":pa-in";
+const char string251[] PROGMEM = ":pb-dir";
+const char string252[] PROGMEM = ":pb-dirclr";
+const char string253[] PROGMEM = ":pb-dirset";
+const char string254[] PROGMEM = ":pb-dirtgl";
+const char string255[] PROGMEM = ":pb-out";
+const char string256[] PROGMEM = ":pb-outclr";
+const char string257[] PROGMEM = ":pb-outset";
+const char string258[] PROGMEM = ":pb-outtgl";
+const char string259[] PROGMEM = ":pb-in";
+const char string260[] PROGMEM = "";
 #elif defined(CPU_NRF51822)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":input-pulldown";
-const char string222[] PROGMEM = ":output";
-const char string223[] PROGMEM = ":ar-default";
-const char string224[] PROGMEM = ":ar-vbg";
-const char string225[] PROGMEM = ":ar-supply-one-half";
-const char string226[] PROGMEM = ":ar-supply-one-third";
-const char string227[] PROGMEM = ":ar-ext0";
-const char string228[] PROGMEM = ":ar-ext1";
-const char string229[] PROGMEM = ":p0-out";
-const char string230[] PROGMEM = ":p0-outset";
-const char string231[] PROGMEM = ":p0-outclr";
-const char string232[] PROGMEM = ":p0-in";
-const char string233[] PROGMEM = ":p0-dir";
-const char string234[] PROGMEM = ":p0-dirset";
-const char string235[] PROGMEM = ":p0-dirclr";
-const char string236[] PROGMEM = "";
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":input-pulldown";
+const char string229[] PROGMEM = ":output";
+const char string230[] PROGMEM = ":ar-default";
+const char string231[] PROGMEM = ":ar-vbg";
+const char string232[] PROGMEM = ":ar-supply-one-half";
+const char string233[] PROGMEM = ":ar-supply-one-third";
+const char string234[] PROGMEM = ":ar-ext0";
+const char string235[] PROGMEM = ":ar-ext1";
+const char string236[] PROGMEM = ":p0-out";
+const char string237[] PROGMEM = ":p0-outset";
+const char string238[] PROGMEM = ":p0-outclr";
+const char string239[] PROGMEM = ":p0-in";
+const char string240[] PROGMEM = ":p0-dir";
+const char string241[] PROGMEM = ":p0-dirset";
+const char string242[] PROGMEM = ":p0-dirclr";
+const char string243[] PROGMEM = "";
 #elif defined(CPU_NRF52840)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":input-pulldown";
-const char string222[] PROGMEM = ":output";
-const char string223[] PROGMEM = ":ar-default";
-const char string224[] PROGMEM = ":ar-internal";
-const char string225[] PROGMEM = ":ar-internal-3-0";
-const char string226[] PROGMEM = ":ar-internal-2-4";
-const char string227[] PROGMEM = ":ar-internal-1-8";
-const char string228[] PROGMEM = ":ar-internal-1-2";
-const char string229[] PROGMEM = ":ar-vdd4";
-const char string230[] PROGMEM = ":p0-out";
-const char string231[] PROGMEM = ":p0-outset";
-const char string232[] PROGMEM = ":p0-outclr";
-const char string233[] PROGMEM = ":p0-in";
-const char string234[] PROGMEM = ":p0-dir";
-const char string235[] PROGMEM = ":p0-dirset";
-const char string236[] PROGMEM = ":p0-dirclr";
-const char string237[] PROGMEM = ":p1-out";
-const char string238[] PROGMEM = ":p1-outset";
-const char string239[] PROGMEM = ":p1-outclr";
-const char string240[] PROGMEM = ":p1-in";
-const char string241[] PROGMEM = ":p1-dir";
-const char string242[] PROGMEM = ":p1-dirset";
-const char string243[] PROGMEM = ":p1-dirclr";
-const char string244[] PROGMEM = "";
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":input-pulldown";
+const char string229[] PROGMEM = ":output";
+const char string230[] PROGMEM = ":ar-default";
+const char string231[] PROGMEM = ":ar-internal";
+const char string232[] PROGMEM = ":ar-internal-3-0";
+const char string233[] PROGMEM = ":ar-internal-2-4";
+const char string234[] PROGMEM = ":ar-internal-1-8";
+const char string235[] PROGMEM = ":ar-internal-1-2";
+const char string236[] PROGMEM = ":ar-vdd4";
+const char string237[] PROGMEM = ":p0-out";
+const char string238[] PROGMEM = ":p0-outset";
+const char string239[] PROGMEM = ":p0-outclr";
+const char string240[] PROGMEM = ":p0-in";
+const char string241[] PROGMEM = ":p0-dir";
+const char string242[] PROGMEM = ":p0-dirset";
+const char string243[] PROGMEM = ":p0-dirclr";
+const char string244[] PROGMEM = ":p1-out";
+const char string245[] PROGMEM = ":p1-outset";
+const char string246[] PROGMEM = ":p1-outclr";
+const char string247[] PROGMEM = ":p1-in";
+const char string248[] PROGMEM = ":p1-dir";
+const char string249[] PROGMEM = ":p1-dirset";
+const char string250[] PROGMEM = ":p1-dirclr";
+const char string251[] PROGMEM = "";
 #elif defined(CPU_NRF52833)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":input-pulldown";
-const char string222[] PROGMEM = ":output";
-const char string223[] PROGMEM = ":ar-default";
-const char string224[] PROGMEM = ":ar-internal";
-const char string225[] PROGMEM = ":ar-vdd4";
-const char string226[] PROGMEM = ":p0-out";
-const char string227[] PROGMEM = ":p0-outset";
-const char string228[] PROGMEM = ":p0-outclr";
-const char string229[] PROGMEM = ":p0-in";
-const char string230[] PROGMEM = ":p0-dir";
-const char string231[] PROGMEM = ":p0-dirset";
-const char string232[] PROGMEM = ":p0-dirclr";
-const char string233[] PROGMEM = ":p1-out";
-const char string234[] PROGMEM = ":p1-outset";
-const char string235[] PROGMEM = ":p1-outclr";
-const char string236[] PROGMEM = ":p1-in";
-const char string237[] PROGMEM = ":p1-dir";
-const char string238[] PROGMEM = ":p1-dirset";
-const char string239[] PROGMEM = ":p1-dirclr";
-const char string240[] PROGMEM = "";
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":input-pulldown";
+const char string229[] PROGMEM = ":output";
+const char string230[] PROGMEM = ":ar-default";
+const char string231[] PROGMEM = ":ar-internal";
+const char string232[] PROGMEM = ":ar-vdd4";
+const char string233[] PROGMEM = ":p0-out";
+const char string234[] PROGMEM = ":p0-outset";
+const char string235[] PROGMEM = ":p0-outclr";
+const char string236[] PROGMEM = ":p0-in";
+const char string237[] PROGMEM = ":p0-dir";
+const char string238[] PROGMEM = ":p0-dirset";
+const char string239[] PROGMEM = ":p0-dirclr";
+const char string240[] PROGMEM = ":p1-out";
+const char string241[] PROGMEM = ":p1-outset";
+const char string242[] PROGMEM = ":p1-outclr";
+const char string243[] PROGMEM = ":p1-in";
+const char string244[] PROGMEM = ":p1-dir";
+const char string245[] PROGMEM = ":p1-dirset";
+const char string246[] PROGMEM = ":p1-dirclr";
+const char string247[] PROGMEM = "";
 #elif defined(CPU_iMXRT1062)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":input-pulldown";
-const char string222[] PROGMEM = ":output";
-const char string223[] PROGMEM = ":output-opendrain";
-const char string224[] PROGMEM = "";
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":input-pulldown";
+const char string229[] PROGMEM = ":output";
+const char string230[] PROGMEM = ":output-opendrain";
+const char string231[] PROGMEM = "";
 #elif defined(CPU_MAX32620)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":output";
-const char string222[] PROGMEM = ":default";
-const char string223[] PROGMEM = ":external";
-const char string224[] PROGMEM = "";
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":output";
+const char string229[] PROGMEM = ":default";
+const char string230[] PROGMEM = ":external";
+const char string231[] PROGMEM = "";
 #elif defined(CPU_RP2040)
-const char string219[] PROGMEM = ":input";
-const char string220[] PROGMEM = ":input-pullup";
-const char string221[] PROGMEM = ":input-pulldown";
-const char string222[] PROGMEM = ":output";
-const char string223[] PROGMEM = ":gpio-in";
-const char string224[] PROGMEM = ":gpio-out";
-const char string225[] PROGMEM = ":gpio-out-set";
-const char string226[] PROGMEM = ":gpio-out-clr";
-const char string227[] PROGMEM = ":gpio-out-xor";
-const char string228[] PROGMEM = ":gpio-oe";
-const char string229[] PROGMEM = ":gpio-oe-set";
-const char string230[] PROGMEM = ":gpio-oe-clr";
-const char string231[] PROGMEM = ":gpio-oe-xor";
-const char string232[] PROGMEM = "";
+const char string226[] PROGMEM = ":input";
+const char string227[] PROGMEM = ":input-pullup";
+const char string228[] PROGMEM = ":input-pulldown";
+const char string229[] PROGMEM = ":output";
+const char string230[] PROGMEM = ":gpio-in";
+const char string231[] PROGMEM = ":gpio-out";
+const char string232[] PROGMEM = ":gpio-out-set";
+const char string233[] PROGMEM = ":gpio-out-clr";
+const char string234[] PROGMEM = ":gpio-out-xor";
+const char string235[] PROGMEM = ":gpio-oe";
+const char string236[] PROGMEM = ":gpio-oe-set";
+const char string237[] PROGMEM = ":gpio-oe-clr";
+const char string238[] PROGMEM = ":gpio-oe-xor";
+const char string239[] PROGMEM = "";
 #endif
 
 // Insert your own function names here
@@ -5174,232 +5371,203 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string35, sp_withspi, 0x1F },
   { string36, sp_withsdcard, 0x2F },
   { string37, sp_withgfx, 0x1F },
-  { string38, sp_defcode, 0x0F },
-  { string39, NULL, 0x00 },
-  { string40, tf_progn, 0x0F },
-  { string41, tf_if, 0x23 },
-  { string42, tf_cond, 0x0F },
-  { string43, tf_when, 0x1F },
-  { string44, tf_unless, 0x1F },
-  { string45, tf_case, 0x1F },
-  { string46, tf_and, 0x0F },
-  { string47, NULL, 0x00 },
-  { string48, fn_not, 0x11 },
+  { string38, sp_withclient, 0x12 },
+  { string39, sp_defcode, 0x0F },
+  { string40, NULL, 0x00 },
+  { string41, tf_progn, 0x0F },
+  { string42, tf_if, 0x23 },
+  { string43, tf_cond, 0x0F },
+  { string44, tf_when, 0x1F },
+  { string45, tf_unless, 0x1F },
+  { string46, tf_case, 0x1F },
+  { string47, tf_and, 0x0F },
+  { string48, NULL, 0x00 },
   { string49, fn_not, 0x11 },
-  { string50, fn_cons, 0x22 },
-  { string51, fn_atom, 0x11 },
-  { string52, fn_listp, 0x11 },
-  { string53, fn_consp, 0x11 },
-  { string54, fn_symbolp, 0x11 },
-  { string55, fn_arrayp, 0x11 },
-  { string56, fn_boundp, 0x11 },
-  { string57, fn_setfn, 0x2F },
-  { string58, fn_streamp, 0x11 },
-  { string59, fn_eq, 0x22 },
-  { string60, fn_car, 0x11 },
+  { string50, fn_not, 0x11 },
+  { string51, fn_cons, 0x22 },
+  { string52, fn_atom, 0x11 },
+  { string53, fn_listp, 0x11 },
+  { string54, fn_consp, 0x11 },
+  { string55, fn_symbolp, 0x11 },
+  { string56, fn_arrayp, 0x11 },
+  { string57, fn_boundp, 0x11 },
+  { string58, fn_setfn, 0x2F },
+  { string59, fn_streamp, 0x11 },
+  { string60, fn_eq, 0x22 },
   { string61, fn_car, 0x11 },
-  { string62, fn_cdr, 0x11 },
+  { string62, fn_car, 0x11 },
   { string63, fn_cdr, 0x11 },
-  { string64, fn_caar, 0x11 },
-  { string65, fn_cadr, 0x11 },
+  { string64, fn_cdr, 0x11 },
+  { string65, fn_caar, 0x11 },
   { string66, fn_cadr, 0x11 },
-  { string67, fn_cdar, 0x11 },
-  { string68, fn_cddr, 0x11 },
-  { string69, fn_caaar, 0x11 },
-  { string70, fn_caadr, 0x11 },
-  { string71, fn_cadar, 0x11 },
-  { string72, fn_caddr, 0x11 },
+  { string67, fn_cadr, 0x11 },
+  { string68, fn_cdar, 0x11 },
+  { string69, fn_cddr, 0x11 },
+  { string70, fn_caaar, 0x11 },
+  { string71, fn_caadr, 0x11 },
+  { string72, fn_cadar, 0x11 },
   { string73, fn_caddr, 0x11 },
-  { string74, fn_cdaar, 0x11 },
-  { string75, fn_cdadr, 0x11 },
-  { string76, fn_cddar, 0x11 },
-  { string77, fn_cdddr, 0x11 },
-  { string78, fn_length, 0x11 },
-  { string79, fn_arraydimensions, 0x11 },
-  { string80, fn_list, 0x0F },
-  { string81, fn_makearray, 0x15 },
-  { string82, fn_reverse, 0x11 },
-  { string83, fn_nth, 0x22 },
-  { string84, fn_aref, 0x2F },
-  { string85, fn_assoc, 0x22 },
-  { string86, fn_member, 0x22 },
-  { string87, fn_apply, 0x2F },
-  { string88, fn_funcall, 0x1F },
-  { string89, fn_append, 0x0F },
-  { string90, fn_mapc, 0x2F },
-  { string91, fn_mapcar, 0x2F },
-  { string92, fn_mapcan, 0x2F },
-  { string93, fn_add, 0x0F },
-  { string94, fn_subtract, 0x1F },
-  { string95, fn_multiply, 0x0F },
-  { string96, fn_divide, 0x1F },
-  { string97, fn_mod, 0x22 },
-  { string98, fn_oneplus, 0x11 },
-  { string99, fn_oneminus, 0x11 },
-  { string100, fn_abs, 0x11 },
-  { string101, fn_random, 0x11 },
-  { string102, fn_maxfn, 0x1F },
-  { string103, fn_minfn, 0x1F },
-  { string104, fn_noteq, 0x1F },
-  { string105, fn_numeq, 0x1F },
-  { string106, fn_less, 0x1F },
-  { string107, fn_lesseq, 0x1F },
-  { string108, fn_greater, 0x1F },
-  { string109, fn_greatereq, 0x1F },
-  { string110, fn_plusp, 0x11 },
-  { string111, fn_minusp, 0x11 },
-  { string112, fn_zerop, 0x11 },
-  { string113, fn_oddp, 0x11 },
-  { string114, fn_evenp, 0x11 },
-  { string115, fn_integerp, 0x11 },
-  { string116, fn_numberp, 0x11 },
-  { string117, fn_floatfn, 0x11 },
-  { string118, fn_floatp, 0x11 },
-  { string119, fn_sin, 0x11 },
-  { string120, fn_cos, 0x11 },
-  { string121, fn_tan, 0x11 },
-  { string122, fn_asin, 0x11 },
-  { string123, fn_acos, 0x11 },
-  { string124, fn_atan, 0x12 },
-  { string125, fn_sinh, 0x11 },
-  { string126, fn_cosh, 0x11 },
-  { string127, fn_tanh, 0x11 },
-  { string128, fn_exp, 0x11 },
-  { string129, fn_sqrt, 0x11 },
-  { string130, fn_log, 0x12 },
-  { string131, fn_expt, 0x22 },
-  { string132, fn_ceiling, 0x12 },
-  { string133, fn_floor, 0x12 },
-  { string134, fn_truncate, 0x12 },
-  { string135, fn_round, 0x12 },
-  { string136, fn_char, 0x22 },
-  { string137, fn_charcode, 0x11 },
-  { string138, fn_codechar, 0x11 },
-  { string139, fn_characterp, 0x11 },
-  { string140, fn_stringp, 0x11 },
-  { string141, fn_stringeq, 0x22 },
-  { string142, fn_stringless, 0x22 },
-  { string143, fn_stringgreater, 0x22 },
-  { string144, fn_sort, 0x22 },
-  { string145, fn_stringfn, 0x11 },
-  { string146, fn_concatenate, 0x1F },
-  { string147, fn_subseq, 0x23 },
-  { string148, fn_readfromstring, 0x11 },
-  { string149, fn_princtostring, 0x11 },
-  { string150, fn_prin1tostring, 0x11 },
-  { string151, fn_logand, 0x0F },
-  { string152, fn_logior, 0x0F },
-  { string153, fn_logxor, 0x0F },
-  { string154, fn_lognot, 0x11 },
-  { string155, fn_ash, 0x22 },
-  { string156, fn_logbitp, 0x22 },
-  { string157, fn_eval, 0x11 },
-  { string158, fn_globals, 0x00 },
-  { string159, fn_locals, 0x00 },
-  { string160, fn_makunbound, 0x11 },
-  { string161, fn_break, 0x00 },
-  { string162, fn_read, 0x01 },
-  { string163, fn_prin1, 0x12 },
-  { string164, fn_print, 0x12 },
-  { string165, fn_princ, 0x12 },
-  { string166, fn_terpri, 0x01 },
-  { string167, fn_readbyte, 0x02 },
-  { string168, fn_readline, 0x01 },
-  { string169, fn_writebyte, 0x12 },
-  { string170, fn_writestring, 0x12 },
-  { string171, fn_writeline, 0x12 },
-  { string172, fn_restarti2c, 0x12 },
-  { string173, fn_gc, 0x00 },
-  { string174, fn_room, 0x00 },
-  { string175, fn_saveimage, 0x01 },
-  { string176, fn_loadimage, 0x01 },
-  { string177, fn_cls, 0x00 },
-  { string178, fn_pinmode, 0x22 },
-  { string179, fn_digitalread, 0x11 },
-  { string180, fn_digitalwrite, 0x22 },
-  { string181, fn_analogread, 0x11 },
-  { string182, fn_analogreference, 0x11 },
-  { string183, fn_analogreadresolution, 0x11 },
-  { string184, fn_analogwrite, 0x22 },
-  { string185, fn_analogwriteresolution, 0x11 },
-  { string186, fn_delay, 0x11 },
-  { string187, fn_millis, 0x00 },
-  { string188, fn_sleep, 0x11 },
-  { string189, fn_note, 0x03 },
-  { string190, fn_register, 0x12 },
-  { string191, fn_edit, 0x11 },
-  { string192, fn_pprint, 0x12 },
-  { string193, fn_pprintall, 0x01 },
-  { string194, fn_format, 0x2F },
-  { string195, fn_require, 0x11 },
-  { string196, fn_listlibrary, 0x00 },
-  { string197, fn_drawpixel, 0x23 },
-  { string198, fn_drawline, 0x45 },
-  { string199, fn_drawrect, 0x45 },
-  { string200, fn_fillrect, 0x45 },
-  { string201, fn_drawcircle, 0x34 },
-  { string202, fn_fillcircle, 0x34 },
-  { string203, fn_drawroundrect, 0x56 },
-  { string204, fn_fillroundrect, 0x56 },
-  { string205, fn_drawtriangle, 0x67 },
-  { string206, fn_filltriangle, 0x67 },
-  { string207, fn_drawchar, 0x36 },
-  { string208, fn_setcursor, 0x22 },
-  { string209, fn_settextcolor, 0x12 },
-  { string210, fn_settextsize, 0x11 },
-  { string211, fn_settextwrap, 0x11 },
-  { string212, fn_fillscreen, 0x01 },
-  { string213, fn_setrotation, 0x11 },
-  { string214, fn_invertdisplay, 0x11 },
-  { string215, NULL, 0x00 },
-  { string216, (fn_ptr_type)LED_BUILTIN, 0 },
-  { string217, (fn_ptr_type)HIGH, DIGITALWRITE },
-  { string218, (fn_ptr_type)LOW, DIGITALWRITE },
+  { string74, fn_caddr, 0x11 },
+  { string75, fn_cdaar, 0x11 },
+  { string76, fn_cdadr, 0x11 },
+  { string77, fn_cddar, 0x11 },
+  { string78, fn_cdddr, 0x11 },
+  { string79, fn_length, 0x11 },
+  { string80, fn_arraydimensions, 0x11 },
+  { string81, fn_list, 0x0F },
+  { string82, fn_makearray, 0x15 },
+  { string83, fn_reverse, 0x11 },
+  { string84, fn_nth, 0x22 },
+  { string85, fn_aref, 0x2F },
+  { string86, fn_assoc, 0x22 },
+  { string87, fn_member, 0x22 },
+  { string88, fn_apply, 0x2F },
+  { string89, fn_funcall, 0x1F },
+  { string90, fn_append, 0x0F },
+  { string91, fn_mapc, 0x2F },
+  { string92, fn_mapcar, 0x2F },
+  { string93, fn_mapcan, 0x2F },
+  { string94, fn_add, 0x0F },
+  { string95, fn_subtract, 0x1F },
+  { string96, fn_multiply, 0x0F },
+  { string97, fn_divide, 0x1F },
+  { string98, fn_mod, 0x22 },
+  { string99, fn_oneplus, 0x11 },
+  { string100, fn_oneminus, 0x11 },
+  { string101, fn_abs, 0x11 },
+  { string102, fn_random, 0x11 },
+  { string103, fn_maxfn, 0x1F },
+  { string104, fn_minfn, 0x1F },
+  { string105, fn_noteq, 0x1F },
+  { string106, fn_numeq, 0x1F },
+  { string107, fn_less, 0x1F },
+  { string108, fn_lesseq, 0x1F },
+  { string109, fn_greater, 0x1F },
+  { string110, fn_greatereq, 0x1F },
+  { string111, fn_plusp, 0x11 },
+  { string112, fn_minusp, 0x11 },
+  { string113, fn_zerop, 0x11 },
+  { string114, fn_oddp, 0x11 },
+  { string115, fn_evenp, 0x11 },
+  { string116, fn_integerp, 0x11 },
+  { string117, fn_numberp, 0x11 },
+  { string118, fn_floatfn, 0x11 },
+  { string119, fn_floatp, 0x11 },
+  { string120, fn_sin, 0x11 },
+  { string121, fn_cos, 0x11 },
+  { string122, fn_tan, 0x11 },
+  { string123, fn_asin, 0x11 },
+  { string124, fn_acos, 0x11 },
+  { string125, fn_atan, 0x12 },
+  { string126, fn_sinh, 0x11 },
+  { string127, fn_cosh, 0x11 },
+  { string128, fn_tanh, 0x11 },
+  { string129, fn_exp, 0x11 },
+  { string130, fn_sqrt, 0x11 },
+  { string131, fn_log, 0x12 },
+  { string132, fn_expt, 0x22 },
+  { string133, fn_ceiling, 0x12 },
+  { string134, fn_floor, 0x12 },
+  { string135, fn_truncate, 0x12 },
+  { string136, fn_round, 0x12 },
+  { string137, fn_char, 0x22 },
+  { string138, fn_charcode, 0x11 },
+  { string139, fn_codechar, 0x11 },
+  { string140, fn_characterp, 0x11 },
+  { string141, fn_stringp, 0x11 },
+  { string142, fn_stringeq, 0x22 },
+  { string143, fn_stringless, 0x22 },
+  { string144, fn_stringgreater, 0x22 },
+  { string145, fn_sort, 0x22 },
+  { string146, fn_stringfn, 0x11 },
+  { string147, fn_concatenate, 0x1F },
+  { string148, fn_subseq, 0x23 },
+  { string149, fn_readfromstring, 0x11 },
+  { string150, fn_princtostring, 0x11 },
+  { string151, fn_prin1tostring, 0x11 },
+  { string152, fn_logand, 0x0F },
+  { string153, fn_logior, 0x0F },
+  { string154, fn_logxor, 0x0F },
+  { string155, fn_lognot, 0x11 },
+  { string156, fn_ash, 0x22 },
+  { string157, fn_logbitp, 0x22 },
+  { string158, fn_eval, 0x11 },
+  { string159, fn_globals, 0x00 },
+  { string160, fn_locals, 0x00 },
+  { string161, fn_makunbound, 0x11 },
+  { string162, fn_break, 0x00 },
+  { string163, fn_read, 0x01 },
+  { string164, fn_prin1, 0x12 },
+  { string165, fn_print, 0x12 },
+  { string166, fn_princ, 0x12 },
+  { string167, fn_terpri, 0x01 },
+  { string168, fn_readbyte, 0x02 },
+  { string169, fn_readline, 0x01 },
+  { string170, fn_writebyte, 0x12 },
+  { string171, fn_writestring, 0x12 },
+  { string172, fn_writeline, 0x12 },
+  { string173, fn_restarti2c, 0x12 },
+  { string174, fn_gc, 0x00 },
+  { string175, fn_room, 0x00 },
+  { string176, fn_saveimage, 0x01 },
+  { string177, fn_loadimage, 0x01 },
+  { string178, fn_cls, 0x00 },
+  { string179, fn_pinmode, 0x22 },
+  { string180, fn_digitalread, 0x11 },
+  { string181, fn_digitalwrite, 0x22 },
+  { string182, fn_analogread, 0x11 },
+  { string183, fn_analogreference, 0x11 },
+  { string184, fn_analogreadresolution, 0x11 },
+  { string185, fn_analogwrite, 0x22 },
+  { string186, fn_analogwriteresolution, 0x11 },
+  { string187, fn_delay, 0x11 },
+  { string188, fn_millis, 0x00 },
+  { string189, fn_sleep, 0x11 },
+  { string190, fn_note, 0x03 },
+  { string191, fn_register, 0x12 },
+  { string192, fn_edit, 0x11 },
+  { string193, fn_pprint, 0x12 },
+  { string194, fn_pprintall, 0x01 },
+  { string195, fn_format, 0x2F },
+  { string196, fn_require, 0x11 },
+  { string197, fn_listlibrary, 0x00 },
+  { string198, fn_available, 0x11 },
+  { string199, fn_wifiserver, 0x00 },
+  { string200, fn_wifisoftap, 0x04 },
+  { string201, fn_connected, 0x11 },
+  { string202, fn_wifilocalip, 0x00 },
+  { string203, fn_wificonnect, 0x02 },
+  { string204, fn_drawpixel, 0x23 },
+  { string205, fn_drawline, 0x45 },
+  { string206, fn_drawrect, 0x45 },
+  { string207, fn_fillrect, 0x45 },
+  { string208, fn_drawcircle, 0x34 },
+  { string209, fn_fillcircle, 0x34 },
+  { string210, fn_drawroundrect, 0x56 },
+  { string211, fn_fillroundrect, 0x56 },
+  { string212, fn_drawtriangle, 0x67 },
+  { string213, fn_filltriangle, 0x67 },
+  { string214, fn_drawchar, 0x36 },
+  { string215, fn_setcursor, 0x22 },
+  { string216, fn_settextcolor, 0x12 },
+  { string217, fn_settextsize, 0x11 },
+  { string218, fn_settextwrap, 0x11 },
+  { string219, fn_fillscreen, 0x01 },
+  { string220, fn_setrotation, 0x11 },
+  { string221, fn_invertdisplay, 0x11 },
+  { string222, NULL, 0x00 },
+  { string223, (fn_ptr_type)LED_BUILTIN, 0 },
+  { string224, (fn_ptr_type)HIGH, DIGITALWRITE },
+  { string225, (fn_ptr_type)LOW, DIGITALWRITE },
 #if defined(CPU_ATSAMD21)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT, PINMODE },
-  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
-  { string227, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
-  { string228, (fn_ptr_type)&PORT->Group[0].DIR.reg, REGISTER },
-  { string229, (fn_ptr_type)&PORT->Group[0].DIRCLR.reg, REGISTER },
-  { string230, (fn_ptr_type)&PORT->Group[0].DIRSET.reg, REGISTER },
-  { string231, (fn_ptr_type)&PORT->Group[0].DIRTGL.reg, REGISTER },
-  { string232, (fn_ptr_type)&PORT->Group[0].OUT.reg, REGISTER },
-  { string233, (fn_ptr_type)&PORT->Group[0].OUTCLR.reg, REGISTER },
-  { string234, (fn_ptr_type)&PORT->Group[0].OUTSET.reg, REGISTER },
-  { string235, (fn_ptr_type)&PORT->Group[0].OUTTGL.reg, REGISTER },
-  { string236, (fn_ptr_type)&PORT->Group[0].IN.reg, REGISTER },
-  { string237, (fn_ptr_type)&PORT->Group[1].DIR.reg, REGISTER },
-  { string238, (fn_ptr_type)&PORT->Group[1].DIRCLR.reg, REGISTER },
-  { string239, (fn_ptr_type)&PORT->Group[1].DIRSET.reg, REGISTER },
-  { string240, (fn_ptr_type)&PORT->Group[1].DIRTGL.reg, REGISTER },
-  { string241, (fn_ptr_type)&PORT->Group[1].OUT.reg, REGISTER },
-  { string242, (fn_ptr_type)&PORT->Group[1].OUTCLR.reg, REGISTER },
-  { string243, (fn_ptr_type)&PORT->Group[1].OUTSET.reg, REGISTER },
-  { string244, (fn_ptr_type)&PORT->Group[1].OUTTGL.reg, REGISTER },
-  { string245, (fn_ptr_type)&PORT->Group[1].IN.reg, REGISTER },
-  { string246, NULL, 0x00 },
-#elif defined(CPU_ATSAMD51)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT, PINMODE },
-  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_INTERNAL1V1, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_INTERNAL1V2, ANALOGREFERENCE },
-  { string227, (fn_ptr_type)AR_INTERNAL1V25, ANALOGREFERENCE },
-  { string228, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
-  { string229, (fn_ptr_type)AR_INTERNAL2V0, ANALOGREFERENCE },
-  { string230, (fn_ptr_type)AR_INTERNAL2V2, ANALOGREFERENCE },
-  { string231, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
-  { string232, (fn_ptr_type)AR_INTERNAL2V4, ANALOGREFERENCE },
-  { string233, (fn_ptr_type)AR_INTERNAL2V5, ANALOGREFERENCE },
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string229, (fn_ptr_type)OUTPUT, PINMODE },
+  { string230, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string231, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
+  { string232, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
+  { string233, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
   { string234, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
   { string235, (fn_ptr_type)&PORT->Group[0].DIR.reg, REGISTER },
   { string236, (fn_ptr_type)&PORT->Group[0].DIRCLR.reg, REGISTER },
@@ -5420,104 +5588,140 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string251, (fn_ptr_type)&PORT->Group[1].OUTTGL.reg, REGISTER },
   { string252, (fn_ptr_type)&PORT->Group[1].IN.reg, REGISTER },
   { string253, NULL, 0x00 },
+#elif defined(CPU_ATSAMD51)
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string229, (fn_ptr_type)OUTPUT, PINMODE },
+  { string230, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string231, (fn_ptr_type)AR_INTERNAL1V0, ANALOGREFERENCE },
+  { string232, (fn_ptr_type)AR_INTERNAL1V1, ANALOGREFERENCE },
+  { string233, (fn_ptr_type)AR_INTERNAL1V2, ANALOGREFERENCE },
+  { string234, (fn_ptr_type)AR_INTERNAL1V25, ANALOGREFERENCE },
+  { string235, (fn_ptr_type)AR_INTERNAL1V65, ANALOGREFERENCE },
+  { string236, (fn_ptr_type)AR_INTERNAL2V0, ANALOGREFERENCE },
+  { string237, (fn_ptr_type)AR_INTERNAL2V2, ANALOGREFERENCE },
+  { string238, (fn_ptr_type)AR_INTERNAL2V23, ANALOGREFERENCE },
+  { string239, (fn_ptr_type)AR_INTERNAL2V4, ANALOGREFERENCE },
+  { string240, (fn_ptr_type)AR_INTERNAL2V5, ANALOGREFERENCE },
+  { string241, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE },
+  { string242, (fn_ptr_type)&PORT->Group[0].DIR.reg, REGISTER },
+  { string243, (fn_ptr_type)&PORT->Group[0].DIRCLR.reg, REGISTER },
+  { string244, (fn_ptr_type)&PORT->Group[0].DIRSET.reg, REGISTER },
+  { string245, (fn_ptr_type)&PORT->Group[0].DIRTGL.reg, REGISTER },
+  { string246, (fn_ptr_type)&PORT->Group[0].OUT.reg, REGISTER },
+  { string247, (fn_ptr_type)&PORT->Group[0].OUTCLR.reg, REGISTER },
+  { string248, (fn_ptr_type)&PORT->Group[0].OUTSET.reg, REGISTER },
+  { string249, (fn_ptr_type)&PORT->Group[0].OUTTGL.reg, REGISTER },
+  { string250, (fn_ptr_type)&PORT->Group[0].IN.reg, REGISTER },
+  { string251, (fn_ptr_type)&PORT->Group[1].DIR.reg, REGISTER },
+  { string252, (fn_ptr_type)&PORT->Group[1].DIRCLR.reg, REGISTER },
+  { string253, (fn_ptr_type)&PORT->Group[1].DIRSET.reg, REGISTER },
+  { string254, (fn_ptr_type)&PORT->Group[1].DIRTGL.reg, REGISTER },
+  { string255, (fn_ptr_type)&PORT->Group[1].OUT.reg, REGISTER },
+  { string256, (fn_ptr_type)&PORT->Group[1].OUTCLR.reg, REGISTER },
+  { string257, (fn_ptr_type)&PORT->Group[1].OUTSET.reg, REGISTER },
+  { string258, (fn_ptr_type)&PORT->Group[1].OUTTGL.reg, REGISTER },
+  { string259, (fn_ptr_type)&PORT->Group[1].IN.reg, REGISTER },
+  { string260, NULL, 0x00 },
 #elif defined(CPU_NRF51822)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT, PINMODE },
-  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_VBG, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_SUPPLY_ONE_HALF, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_SUPPLY_ONE_THIRD, ANALOGREFERENCE },
-  { string227, (fn_ptr_type)AR_EXT0, ANALOGREFERENCE },
-  { string228, (fn_ptr_type)AR_EXT1, ANALOGREFERENCE },
-  { string229, (fn_ptr_type)&NRF_GPIO->OUT, REGISTER },
-  { string230, (fn_ptr_type)&NRF_GPIO->OUTSET, REGISTER },
-  { string231, (fn_ptr_type)&NRF_GPIO->OUTCLR, REGISTER },
-  { string232, (fn_ptr_type)&NRF_GPIO->IN, REGISTER },
-  { string233, (fn_ptr_type)&NRF_GPIO->DIR, REGISTER },
-  { string234, (fn_ptr_type)&NRF_GPIO->DIRSET, REGISTER },
-  { string235, (fn_ptr_type)&NRF_GPIO->DIRCLR, REGISTER },
-  { string236, NULL, 0x00 },
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string229, (fn_ptr_type)OUTPUT, PINMODE },
+  { string230, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string231, (fn_ptr_type)AR_VBG, ANALOGREFERENCE },
+  { string232, (fn_ptr_type)AR_SUPPLY_ONE_HALF, ANALOGREFERENCE },
+  { string233, (fn_ptr_type)AR_SUPPLY_ONE_THIRD, ANALOGREFERENCE },
+  { string234, (fn_ptr_type)AR_EXT0, ANALOGREFERENCE },
+  { string235, (fn_ptr_type)AR_EXT1, ANALOGREFERENCE },
+  { string236, (fn_ptr_type)&NRF_GPIO->OUT, REGISTER },
+  { string237, (fn_ptr_type)&NRF_GPIO->OUTSET, REGISTER },
+  { string238, (fn_ptr_type)&NRF_GPIO->OUTCLR, REGISTER },
+  { string239, (fn_ptr_type)&NRF_GPIO->IN, REGISTER },
+  { string240, (fn_ptr_type)&NRF_GPIO->DIR, REGISTER },
+  { string241, (fn_ptr_type)&NRF_GPIO->DIRSET, REGISTER },
+  { string242, (fn_ptr_type)&NRF_GPIO->DIRCLR, REGISTER },
+  { string243, NULL, 0x00 },
 #elif defined(CPU_NRF52840)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT, PINMODE },
-  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_INTERNAL_3_0, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)AR_INTERNAL_2_4, ANALOGREFERENCE },
-  { string227, (fn_ptr_type)AR_INTERNAL_1_8, ANALOGREFERENCE },
-  { string228, (fn_ptr_type)AR_INTERNAL_1_2, ANALOGREFERENCE },
-  { string229, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
-  { string230, (fn_ptr_type)&NRF_P0->OUT, REGISTER },
-  { string231, (fn_ptr_type)&NRF_P0->OUTSET, REGISTER },
-  { string232, (fn_ptr_type)&NRF_P0->OUTCLR, REGISTER },
-  { string233, (fn_ptr_type)&NRF_P0->IN, REGISTER },
-  { string234, (fn_ptr_type)&NRF_P0->DIR, REGISTER },
-  { string235, (fn_ptr_type)&NRF_P0->DIRSET, REGISTER },
-  { string236, (fn_ptr_type)&NRF_P0->DIRCLR, REGISTER },
-  { string237, (fn_ptr_type)&NRF_P1->OUT, REGISTER },
-  { string238, (fn_ptr_type)&NRF_P1->OUTSET, REGISTER },
-  { string239, (fn_ptr_type)&NRF_P1->OUTCLR, REGISTER },
-  { string240, (fn_ptr_type)&NRF_P1->IN, REGISTER },
-  { string241, (fn_ptr_type)&NRF_P1->DIR, REGISTER },
-  { string242, (fn_ptr_type)&NRF_P1->DIRSET, REGISTER },
-  { string243, (fn_ptr_type)&NRF_P1->DIRCLR, REGISTER },
-  { string244, NULL, 0x00 },
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string229, (fn_ptr_type)OUTPUT, PINMODE },
+  { string230, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string231, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
+  { string232, (fn_ptr_type)AR_INTERNAL_3_0, ANALOGREFERENCE },
+  { string233, (fn_ptr_type)AR_INTERNAL_2_4, ANALOGREFERENCE },
+  { string234, (fn_ptr_type)AR_INTERNAL_1_8, ANALOGREFERENCE },
+  { string235, (fn_ptr_type)AR_INTERNAL_1_2, ANALOGREFERENCE },
+  { string236, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
+  { string237, (fn_ptr_type)&NRF_P0->OUT, REGISTER },
+  { string238, (fn_ptr_type)&NRF_P0->OUTSET, REGISTER },
+  { string239, (fn_ptr_type)&NRF_P0->OUTCLR, REGISTER },
+  { string240, (fn_ptr_type)&NRF_P0->IN, REGISTER },
+  { string241, (fn_ptr_type)&NRF_P0->DIR, REGISTER },
+  { string242, (fn_ptr_type)&NRF_P0->DIRSET, REGISTER },
+  { string243, (fn_ptr_type)&NRF_P0->DIRCLR, REGISTER },
+  { string244, (fn_ptr_type)&NRF_P1->OUT, REGISTER },
+  { string245, (fn_ptr_type)&NRF_P1->OUTSET, REGISTER },
+  { string246, (fn_ptr_type)&NRF_P1->OUTCLR, REGISTER },
+  { string247, (fn_ptr_type)&NRF_P1->IN, REGISTER },
+  { string248, (fn_ptr_type)&NRF_P1->DIR, REGISTER },
+  { string249, (fn_ptr_type)&NRF_P1->DIRSET, REGISTER },
+  { string250, (fn_ptr_type)&NRF_P1->DIRCLR, REGISTER },
+  { string251, NULL, 0x00 },
 #elif defined(CPU_NRF52833)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT, PINMODE },
-  { string223, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
-  { string224, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
-  { string225, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
-  { string226, (fn_ptr_type)&NRF_P0->OUT, REGISTER },
-  { string227, (fn_ptr_type)&NRF_P0->OUTSET, REGISTER },
-  { string228, (fn_ptr_type)&NRF_P0->OUTCLR, REGISTER },
-  { string229, (fn_ptr_type)&NRF_P0->IN, REGISTER },
-  { string230, (fn_ptr_type)&NRF_P0->DIR, REGISTER },
-  { string231, (fn_ptr_type)&NRF_P0->DIRSET, REGISTER },
-  { string232, (fn_ptr_type)&NRF_P0->DIRCLR, REGISTER },
-  { string233, (fn_ptr_type)&NRF_P1->OUT, REGISTER },
-  { string234, (fn_ptr_type)&NRF_P1->OUTSET, REGISTER },
-  { string235, (fn_ptr_type)&NRF_P1->OUTCLR, REGISTER },
-  { string236, (fn_ptr_type)&NRF_P1->IN, REGISTER },
-  { string237, (fn_ptr_type)&NRF_P1->DIR, REGISTER },
-  { string238, (fn_ptr_type)&NRF_P1->DIRSET, REGISTER },
-  { string239, (fn_ptr_type)&NRF_P1->DIRCLR, REGISTER },
-  { string240, NULL, 0x00 },
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string229, (fn_ptr_type)OUTPUT, PINMODE },
+  { string230, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE },
+  { string231, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE },
+  { string232, (fn_ptr_type)AR_VDD4, ANALOGREFERENCE },
+  { string233, (fn_ptr_type)&NRF_P0->OUT, REGISTER },
+  { string234, (fn_ptr_type)&NRF_P0->OUTSET, REGISTER },
+  { string235, (fn_ptr_type)&NRF_P0->OUTCLR, REGISTER },
+  { string236, (fn_ptr_type)&NRF_P0->IN, REGISTER },
+  { string237, (fn_ptr_type)&NRF_P0->DIR, REGISTER },
+  { string238, (fn_ptr_type)&NRF_P0->DIRSET, REGISTER },
+  { string239, (fn_ptr_type)&NRF_P0->DIRCLR, REGISTER },
+  { string240, (fn_ptr_type)&NRF_P1->OUT, REGISTER },
+  { string241, (fn_ptr_type)&NRF_P1->OUTSET, REGISTER },
+  { string242, (fn_ptr_type)&NRF_P1->OUTCLR, REGISTER },
+  { string243, (fn_ptr_type)&NRF_P1->IN, REGISTER },
+  { string244, (fn_ptr_type)&NRF_P1->DIR, REGISTER },
+  { string245, (fn_ptr_type)&NRF_P1->DIRSET, REGISTER },
+  { string246, (fn_ptr_type)&NRF_P1->DIRCLR, REGISTER },
+  { string247, NULL, 0x00 },
 #elif defined(CPU_iMXRT1062)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT, PINMODE },
-  { string223, (fn_ptr_type)OUTPUT_OPENDRAIN, PINMODE },
-  { string224, NULL, 0x00 },
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string229, (fn_ptr_type)OUTPUT, PINMODE },
+  { string230, (fn_ptr_type)OUTPUT_OPENDRAIN, PINMODE },
+  { string231, NULL, 0x00 },
 #elif defined(CPU_MAX32620)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)OUTPUT, PINMODE },
-  { string222, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
-  { string223, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
-  { string224, NULL, 0x00 },
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)OUTPUT, PINMODE },
+  { string229, (fn_ptr_type)DEFAULT, ANALOGREFERENCE },
+  { string230, (fn_ptr_type)EXTERNAL, ANALOGREFERENCE },
+  { string231, NULL, 0x00 },
 #elif defined(CPU_RP2040)
-  { string219, (fn_ptr_type)INPUT, PINMODE },
-  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string222, (fn_ptr_type)OUTPUT, PINMODE },
-  { string223, (fn_ptr_type)(SIO_BASE+SIO_GPIO_IN_OFFSET), REGISTER },
-  { string224, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_OFFSET), REGISTER },
-  { string225, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_SET_OFFSET), REGISTER },
-  { string226, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_CLR_OFFSET), REGISTER },
-  { string227, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_XOR_OFFSET), REGISTER },
-  { string228, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_OFFSET), REGISTER },
-  { string229, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_SET_OFFSET), REGISTER },
-  { string230, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_CLR_OFFSET), REGISTER },
-  { string231, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_XOR_OFFSET), REGISTER },
-  { string232, NULL, 0x00 },
+  { string226, (fn_ptr_type)INPUT, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string228, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string229, (fn_ptr_type)OUTPUT, PINMODE },
+  { string230, (fn_ptr_type)(SIO_BASE+SIO_GPIO_IN_OFFSET), REGISTER },
+  { string231, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_OFFSET), REGISTER },
+  { string232, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_SET_OFFSET), REGISTER },
+  { string233, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_CLR_OFFSET), REGISTER },
+  { string234, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_XOR_OFFSET), REGISTER },
+  { string235, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_OFFSET), REGISTER },
+  { string236, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_SET_OFFSET), REGISTER },
+  { string237, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_CLR_OFFSET), REGISTER },
+  { string238, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_XOR_OFFSET), REGISTER },
+  { string239, NULL, 0x00 },
 #endif
 
 // Insert your own table entries here
@@ -6268,7 +6472,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.1a "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.2 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -6317,6 +6521,9 @@ void loop () {
   #endif
   #if defined(lisplibrary)
   if (!tstflag(LIBRARYLOADED)) { setflag(LIBRARYLOADED); loadfromlibrary(NULL); }
+  #endif
+  #if defined(ULISP_WIFI)
+  client.stop();
   #endif
   repl(NULL);
 }
