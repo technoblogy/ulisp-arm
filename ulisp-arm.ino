@@ -1,5 +1,5 @@
-/* uLisp ARM Version 4.3 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 15th September 2022
+/* uLisp ARM Version 4.3a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 18th September 2022
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -1707,7 +1707,7 @@ char *cstring (builtin_t name, object *form, char *buffer, int buflen) {
   return buffer;
 }
 
-IPAddress ipstring (builtin_t name, object *form) {
+uint32_t ipstring (builtin_t name, object *form) {
   form = cdr(checkstring(name, form));
   int p = 0;
   union { uint32_t ipaddress; uint8_t ipbytes[4]; } ;
@@ -2076,7 +2076,6 @@ void serialend (int address) {
   #elif defined(ULISP_SERIAL1)
   if (address == 1) {Serial1.flush(); Serial1.end(); }
   #else
-  (void) baud;
   if (false);
   #endif
   else error(WITHSERIAL, PSTR("port not supported"), number(address));
@@ -7062,7 +7061,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.3 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.3a "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
