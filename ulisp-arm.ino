@@ -2306,7 +2306,7 @@ const int scale[] PROGMEM = {4186,4435,4699,4978,5274,5588,5920,6272,6645,7040,7
 
 void playnote (int pin, int note, int octave) {
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_NRF52840_CIRCUITPLAY) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040)
-  if (!(pin>=26 && pin<=29)) error(ANALOGREAD, invalidpin, number(pin));
+  // if (!(pin>=26 && pin<=29)) error(ANALOGREAD, invalidpin, number(pin));
   int prescaler = 8 - octave - note/12;
   if (prescaler<0 || prescaler>8) error(NOTE, PSTR("octave out of range"), number(prescaler));
   tone(pin, scale[note%12]>>prescaler);
