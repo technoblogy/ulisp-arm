@@ -147,7 +147,11 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
   #define DATAFLASH
   #define FLASHSIZE 2048000               /* 2 MBytes */
   #define CODESIZE 256                    /* Bytes */
-  #define STACKDIFF 1200
+  #if defined(ARDUINO_NRF52840_CIRCUITPLAY)
+    #define STACKDIFF 0
+  #else
+    #define STACKDIFF 1200
+  #endif
   #define CPU_NRF52840
 
 #elif defined(MAX32620)
