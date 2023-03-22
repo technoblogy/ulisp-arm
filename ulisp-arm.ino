@@ -1,9 +1,9 @@
-/* uLisp ARM Release 4.4 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 21st March 2023
+/* uLisp ARM Release 4.4a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 22nd March 2023
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
- 
+
 // Lisp Library
 const char LispLibrary[] PROGMEM = "";
 
@@ -4838,7 +4838,7 @@ object *sp_withclient (object *args, object *env) {
     object *address = eval(first(params), env);
     object *port = eval(second(params), env);
     int success;
-    if (stringp(address)) success = client.connect(cstring(WITHCLIENT, address, buffer, BUFFERSIZE), checkinteger(port));
+    if (stringp(address)) success = client.connect(cstring(address, buffer, BUFFERSIZE), checkinteger(port));
     else if (integerp(address)) success = client.connect(address->integer, checkinteger(port));
     else error2(PSTR("invalid address"));
     if (!success) return nil;
@@ -7305,7 +7305,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.4 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.4a "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
