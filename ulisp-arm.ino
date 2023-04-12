@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.4b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 3rd April 2023
+/* uLisp ARM Release 4.4c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 12th April 2023
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -204,6 +204,14 @@ const char LispLibrary[] PROGMEM = "";
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 320
   #define CPU_RP2040
+  #if defined(gfxsupport)
+  const int COLOR_WHITE = 0xffff, COLOR_BLACK = 0;
+  #include <Adafruit_GFX.h>    // Core graphics library
+  #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+  Adafruit_ST7789 tft = Adafruit_ST7789(5, 1, 3, 2, 0); // TTGO RP2040 TFT
+  #define TFT_BACKLIGHT 4
+  #define TFT_I2C_POWER 22
+  #endif
 
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
   #define WORKSPACESIZE (15536-SDSIZE)    /* Objects (8*bytes) */
@@ -7303,6 +7311,14 @@ void initgfx () {
   tft.fillScreen(0);
   pinMode(34, OUTPUT); // Backlight
   digitalWrite(34, HIGH);
+  #elif defined(ARDUINO_RASPBERRY_PI_PICO)
+  tft.init(135, 240);
+  pinMode(TFT_I2C_POWER, OUTPUT);
+  digitalWrite(TFT_I2C_POWER, HIGH);
+  tft.setRotation(1);
+  tft.fillScreen(ST77XX_BLACK);
+  pinMode(TFT_BACKLIGHT, OUTPUT);
+  digitalWrite(TFT_BACKLIGHT, HIGH);
   #endif
   #endif
 }
@@ -7316,7 +7332,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.4b "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.4c "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
