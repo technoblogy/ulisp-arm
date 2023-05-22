@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.4c - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 12th April 2023
+/* uLisp ARM Release 4.4d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 22nd May 2023
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -1331,10 +1331,6 @@ object *divide_floats (object *args, float fresult) {
   return makefloat(fresult);
 }
 
-int myround (float number) {
-  return (number >= 0) ? (int)(number + 0.5) : (int)(number - 0.5);
-}
-
 object *compare (object *args, bool lt, bool gt, bool eq) {
   object *arg1 = first(args);
   args = cdr(args);
@@ -2055,10 +2051,10 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W)
 #define ULISP_SPI1
 #endif
-#if defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040)
+#if defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_NRF52840_CIRCUITPLAY)
 #define ULISP_I2C1
 #endif
-#if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
+#if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(ARDUINO_GRAND_CENTRAL_M4)
 #define ULISP_SERIAL3
 #elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W)
 #define ULISP_SERIAL2
@@ -2292,7 +2288,7 @@ void checkanalogread (int pin) {
 #elif defined(ARDUINO_WIO_TERMINAL)
   if (!((pin>=0 && pin<=8))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_GRAND_CENTRAL_M4)
-  if (!((pin>=67 && pin<=74) || (pin>=54 && pin<=61)))  error(invalidpin, number(pin));
+  if (!((pin>=67 && pin<=74) || (pin>=54 && pin<=61))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_BBC_MICROBIT) || defined(ARDUINO_SINOBIT)
   if (!((pin>=0 && pin<=4) || pin==10)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_BBC_MICROBIT_V2)
@@ -2315,6 +2311,8 @@ void checkanalogread (int pin) {
   if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040)
   if (!(pin>=26 && pin<=29)) error(invalidpin, number(pin));
+#elif defined(ARDUINO_SANTIAGO)
+  if (!((pin>=14 && pin<=21))) error(invalidpin, number(pin));
 #endif
 }
 
@@ -2369,6 +2367,8 @@ void checkanalogwrite (int pin) {
   if (!(pin>=0 && pin<=29)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
   if (!((pin>=0 && pin<=29) || pin == 32)) error(invalidpin, number(pin));
+#elif defined(ARDUINO_SANTIAGO)
+  if (!((pin>=0 && pin<=21))) error(invalidpin, number(pin));
 #endif
 }
 
@@ -3040,7 +3040,7 @@ object *sp_withspi (object *args, object *env) {
   object *pair = cons(var, stream(SPISTREAM, pin + 128*address));
   push(pair,env);
   SPIClass *spiClass = &SPI;
-  #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
+  #if defined(ULISP_SPI1)
   if (address == 1) spiClass = &SPI1;
   #endif
   spiClass->begin();
@@ -4001,8 +4001,8 @@ object *fn_round (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   args = cdr(args);
-  if (args != NULL) return number(myround(checkintfloat(arg) / checkintfloat(first(args))));
-  else return number(myround(checkintfloat(arg)));
+  if (args != NULL) return number(round(checkintfloat(arg) / checkintfloat(first(args))));
+  else return number(round(checkintfloat(arg)));
 }
 
 // Characters
@@ -5602,6 +5602,11 @@ const char string241[] PROGMEM = ":gpio-oe";
 const char string242[] PROGMEM = ":gpio-oe-set";
 const char string243[] PROGMEM = ":gpio-oe-clr";
 const char string244[] PROGMEM = ":gpio-oe-xor";
+#elif defined(ARDUINO_SANTIAGO)
+const char string232[] PROGMEM = ":input";
+const char string233[] PROGMEM = ":input-pullup";
+const char string234[] PROGMEM = ":output";
+const char string235[] PROGMEM = ":output-opendrain";
 #endif
 
 // Documentation strings
@@ -6520,6 +6525,11 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string242, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_SET_OFFSET), REGISTER, NULL },
   { string243, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_CLR_OFFSET), REGISTER, NULL },
   { string244, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_XOR_OFFSET), REGISTER, NULL },
+#elif defined(ARDUINO_SANTIAGO)
+  { string232, (fn_ptr_type)INPUT, PINMODE, NULL },
+  { string233, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
+  { string234, (fn_ptr_type)OUTPUT, PINMODE, NULL },
+  { string235, (fn_ptr_type)OUTPUT_OPENDRAIN, PINMODE, NULL },
 #endif
 };
 
@@ -7332,7 +7342,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.4c "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.4d "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
