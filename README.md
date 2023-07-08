@@ -2,6 +2,7 @@
 A version of the Lisp programming language for boards based on the ARM processor:
 
 * Arduino Zero and MKRZero.
+* Arduino Uno R4 Minima and WiFi.
 * Adafruit ItsyBitsy M0, Feather M0, and Gemma M0.
 * Adafruit Metro M4, ItsyBitsy M4, Feather M4, and Grand Central M4.
 * Adafruit PyBadge and PyGamer.
