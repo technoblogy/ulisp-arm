@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.4d - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 22nd May 2023
+/* uLisp ARM Release 4.5 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 8th July 2023
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -44,7 +44,7 @@ const char LispLibrary[] PROGMEM = "";
 
 #if defined(ARDUINO_GEMMA_M0) || defined(ARDUINO_SEEED_XIAO_M0) || defined(ARDUINO_QTPY_M0)
   #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
-  #define EEPROMFLASH
+  #define CPUFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define CODESIZE 128                    /* Bytes */
   #define STACKDIFF 320
@@ -61,7 +61,7 @@ const char LispLibrary[] PROGMEM = "";
 
 #elif defined(ADAFRUIT_FEATHER_M0)        /* Feather M0 without DataFlash */
   #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
-  #define EEPROMFLASH
+  #define CPUFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define CODESIZE 128                    /* Bytes */
   #define SDCARD_SS_PIN 4
@@ -116,7 +116,7 @@ const char LispLibrary[] PROGMEM = "";
 
 #elif defined(ARDUINO_SAMD_MKRZERO)
   #define WORKSPACESIZE (2640-SDSIZE)     /* Objects (8*bytes) */
-  #define EEPROMFLASH
+  #define CPUFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define CODESIZE 128                    /* Bytes */
@@ -125,7 +125,7 @@ const char LispLibrary[] PROGMEM = "";
 
 #elif defined(ARDUINO_SAMD_ZERO)          /* Put this last, otherwise overrides the Adafruit boards */
   #define WORKSPACESIZE (2640-SDSIZE)     /* Objects (8*bytes) */
-  #define EEPROMFLASH
+  #define CPUFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define CODESIZE 128                    /* Bytes */
   #define SDCARD_SS_PIN 10
@@ -223,6 +223,29 @@ const char LispLibrary[] PROGMEM = "";
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 320
   #define CPU_RP2040
+
+#elif defined(ARDUINO_MINIMA)
+  #define WORKSPACESIZE (2160-SDSIZE)    /* Objects (8*bytes) was 2160 */
+  #include <EEPROM.h>
+  #define EEPROMFLASH
+  #define FLASHSIZE 8192                 /* Bytes */
+  #define CODESIZE 128                   /* Bytes */
+  #define STACKDIFF 320
+  #define eAnalogReference ar_aref
+  #define CPU_RA4M1
+  #define SDCARD_SS_PIN 10
+
+#elif defined(ARDUINO_UNOWIFIR4)
+  #define WORKSPACESIZE (1700-SDSIZE)    /* Objects (8*bytes) was 2160 */
+  #include <EEPROM.h>
+  #include "WiFiS3.h"
+  #define EEPROMFLASH
+  #define FLASHSIZE 8192                 /* Bytes */
+  #define CODESIZE 128                   /* Bytes */
+  #define STACKDIFF 320
+  #define eAnalogReference ar_aref
+  #define CPU_RA4M1
+  #define SDCARD_SS_PIN 10
 
 #else
 #error "Board not supported!"
@@ -779,7 +802,7 @@ bool FlashCheck () {
   for (uint8_t i=0; i<4; i++) FlashReadByte();
   devID = FlashReadByte();
   digitalWrite(ssel, HIGH);
-  return (devID == 0x14 || devID == 0x15 || devID == 0x16); // true = found correct device
+  return (devID >= 0x14 && devID <= 0x17); // true = found correct device
 }
 
 void FlashBeginWrite (uint32_t *addr, uint32_t bytes) {
@@ -827,7 +850,7 @@ inline void FlashEndRead(uint32_t *addr) {
   digitalWrite(ssel, 1);
 }
 
-#elif defined(EEPROMFLASH)
+#elif defined(CPUFLASH)
 // For ATSAMD21
 __attribute__((__aligned__(256))) static const uint8_t flash_store[FLASHSIZE] = { };
 
@@ -877,6 +900,40 @@ void FlashBeginRead(uint32_t *addr) {
 
 uint32_t FlashRead32 (uint32_t *addr) {
   uint32_t data = *(volatile const uint32_t *)(*addr);
+  (*addr) = (*addr) + 4;
+  return data;
+}
+
+void FlashEndRead (uint32_t *addr) {
+  (void) addr;
+}
+#elif defined(EEPROMFLASH)
+
+bool FlashCheck() {
+  return (EEPROM.length() == FLASHSIZE);
+}
+
+void FlashBeginWrite(uint32_t *addr, uint32_t bytes) {
+  (void) bytes;
+  *addr = 0;
+}
+
+void FlashWrite32 (uint32_t *addr, uint32_t data) {
+  EEPROM.put(*addr, data);
+  (*addr) = (*addr) + 4;
+}
+
+void FlashEndWrite (uint32_t *addr) {
+  (void) addr;
+}
+
+void FlashBeginRead(uint32_t *addr) {
+  *addr = 0;
+}
+
+uint32_t FlashRead32 (uint32_t *addr) {
+  uint32_t data;
+  EEPROM.get(*addr, data);
   (*addr) = (*addr) + 4;
   return data;
 }
@@ -937,7 +994,7 @@ int saveimage (object *arg) {
   }
   file.close();
   return imagesize;
-#elif defined(DATAFLASH) || defined(EEPROMFLASH)
+#elif defined(DATAFLASH) || defined(CPUFLASH) || defined(EEPROMFLASH)
   unsigned int imagesize = compactimage(&arg);
   if (!(arg == NULL || listp(arg))) error(invalidarg, arg);
   if (!FlashCheck()) error2(PSTR("flash not available"));
@@ -1020,7 +1077,7 @@ int loadimage (object *arg) {
   file.close();
   gc(NULL, NULL);
   return imagesize;
-#elif defined(DATAFLASH) || defined(EEPROMFLASH) || defined(EEPROMLIBRARY)
+#elif defined(DATAFLASH) || defined(CPUFLASH) || defined(EEPROMFLASH)
   (void) arg;
   if (!FlashCheck()) error2(PSTR("flash not available"));
   uint32_t addr;
@@ -1071,7 +1128,7 @@ void autorunimage () {
     loadimage(NULL);
     apply(autorun, NULL, NULL);
   }
-#elif defined(DATAFLASH) || defined(EEPROMFLASH) || defined(EEPROMLIBRARY)
+#elif defined(DATAFLASH) || defined(CPUFLASH) || defined(EEPROMFLASH)
   if (!FlashCheck()) error2(PSTR("flash not available"));
   uint32_t addr;
   FlashBeginRead(&addr);
@@ -1606,13 +1663,13 @@ object *copystring (object *arg) {
   return obj;
 }
 
-object *readstring (uint8_t delim, gfun_t gfun) {
+object *readstring (uint8_t delim, bool esc, gfun_t gfun) {
   object *obj = newstring();
   object *tail = obj;
   int ch = gfun();
   if (ch == -1) return nil;
   while ((ch != delim) && (ch != -1)) {
-    if (ch == '\\') ch = gfun();
+    if (esc && ch == '\\') ch = gfun();
     buildstring(ch, &tail);
     ch = gfun();
   }
@@ -1660,6 +1717,17 @@ void pstr (char c) {
   buildstring(c, &GlobalStringTail);
 }
 
+object *iptostring (uint32_t ip) {
+  union { uint32_t data2; uint8_t u8[4]; };
+  object *obj = startstring();
+  data2 = ip;
+  for (int i=0; i<4; i++) {
+    if (i) pstr('.');
+    pintbase(u8[i], 10, pstr);
+  }
+  return obj;
+}
+
 object *lispstring (char *s) {
   object *obj = newstring();
   object *tail = obj;
@@ -1689,6 +1757,7 @@ bool stringcompare (object *args, bool lt, bool gt, bool eq) {
 }
 
 object *documentation (object *arg, object *env) {
+  if (arg == NULL) return nil;
   if (!symbolp(arg)) error(notasymbol, arg);
   object *pair = findpair(arg, env);
   if (pair != NULL) {
@@ -1701,7 +1770,9 @@ object *documentation (object *arg, object *env) {
   if (!builtinp(docname)) return nil;
   char *docstring = lookupdoc(builtin(docname));
   if (docstring == NULL) return nil;
-  return lispstring(docstring);
+  object *obj = startstring();
+  pfstring(docstring, pstr);
+  return obj;
 }
 
 object *apropos (object *arg, bool print) {
@@ -2061,7 +2132,7 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 #elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
 #define ULISP_SERIAL1
 #endif
-#if defined(ARDUINO_RASPBERRY_PI_PICO_W)
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_UNOWIFIR4)
 #define ULISP_WIFI
 #endif
 
@@ -2104,6 +2175,7 @@ inline int WiFiread () {
     LastChar = 0;
     return temp;
   }
+  while (!client.available()) testescape();
   return client.read();
 }
 #endif
@@ -2311,7 +2383,7 @@ void checkanalogread (int pin) {
   if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040)
   if (!(pin>=26 && pin<=29)) error(invalidpin, number(pin));
-#elif defined(ARDUINO_SANTIAGO)
+#elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=14 && pin<=21))) error(invalidpin, number(pin));
 #endif
 }
@@ -2367,7 +2439,7 @@ void checkanalogwrite (int pin) {
   if (!(pin>=0 && pin<=29)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
   if (!((pin>=0 && pin<=29) || pin == 32)) error(invalidpin, number(pin));
-#elif defined(ARDUINO_SANTIAGO)
+#elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=0 && pin<=21))) error(invalidpin, number(pin));
 #endif
 }
@@ -3059,7 +3131,10 @@ object *sp_withsdcard (object *args, object *env) {
   object *var = first(params);
   params = cdr(params);
   if (params == NULL) error2(PSTR("no filename specified"));
+  builtin_t temp = Context;
   object *filename = eval(first(params), env);
+  Context = temp;
+  if (!stringp(filename)) error(PSTR("filename is not a string"), filename);
   params = cdr(params);
   SD.begin(SDCARD_SS_PIN);
   int mode = 0;
@@ -4338,7 +4413,7 @@ object *fn_readbyte (object *args, object *env) {
 object *fn_readline (object *args, object *env) {
   (void) env;
   gfun_t gfun = gstreamfun(args);
-  return readstring('\n', gfun);
+  return readstring('\n', false, gfun);
 }
 
 object *fn_writebyte (object *args, object *env) {
@@ -4374,7 +4449,7 @@ object *fn_writeline (object *args, object *env) {
 
 object *fn_restarti2c (object *args, object *env) {
   (void) env;
-  int stream = first(args)->integer;
+  int stream = isstream(first(args));
   args = cdr(args);
   int read = 0; // Write
   I2Ccount = 0;
@@ -4918,7 +4993,7 @@ object *fn_wifisoftap (object *args, object *env) {
     }
     WiFi.beginAP(cstring(first, ssid, 33), cstring(second, pass, 65), channel);
   }
-  return lispstring((char*)"192.168.4.1");
+  return iptostring(WiFi.localIP());
   #else
   (void) args, (void) env;
   error2(PSTR("not supported"));
@@ -4941,7 +5016,7 @@ object *fn_connected (object *args, object *env) {
 object *fn_wifilocalip (object *args, object *env) {
   #if defined (ULISP_WIFI)
   (void) args, (void) env;
-  return lispstring((char*)WiFi.localIP().toString().c_str());
+  return iptostring(WiFi.localIP());
   #else
   (void) args, (void) env;
   error2(PSTR("not supported"));
@@ -4953,14 +5028,14 @@ object *fn_wificonnect (object *args, object *env) {
   #if defined (ULISP_WIFI)
   (void) env;
   char ssid[33], pass[65];
+  int result = 0;
   if (args == NULL) { WiFi.disconnect(); return nil; }
   if (cdr(args) == NULL) WiFi.begin(cstring(first(args), ssid, 33));
   else {
     if (cddr(args) != NULL) WiFi.config(ipstring(third(args)));
-    WiFi.begin(cstring(first(args), ssid, 33), cstring(second(args), pass, 65));
+    result = WiFi.begin(cstring(first(args), ssid, 33), cstring(second(args), pass, 65));
   }
-  int result = WiFi.waitForConnectResult();
-  if (result == WL_CONNECTED) return lispstring((char*)WiFi.localIP().toString().c_str());
+  if (result == WL_CONNECTED) return iptostring(WiFi.localIP());
   else if (result == WL_NO_SSID_AVAIL) error2(PSTR("network not found"));
   else if (result == WL_CONNECT_FAILED) error2(PSTR("connection failed"));
   else error2(PSTR("unable to connect"));
@@ -5602,11 +5677,14 @@ const char string241[] PROGMEM = ":gpio-oe";
 const char string242[] PROGMEM = ":gpio-oe-set";
 const char string243[] PROGMEM = ":gpio-oe-clr";
 const char string244[] PROGMEM = ":gpio-oe-xor";
-#elif defined(ARDUINO_SANTIAGO)
+#elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
 const char string232[] PROGMEM = ":input";
 const char string233[] PROGMEM = ":input-pullup";
 const char string234[] PROGMEM = ":output";
 const char string235[] PROGMEM = ":output-opendrain";
+const char string236[] PROGMEM = ":ar-default";
+const char string237[] PROGMEM = ":ar-internal";
+const char string238[] PROGMEM = ":ar-external";
 #endif
 
 // Documentation strings
@@ -6525,11 +6603,14 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string242, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_SET_OFFSET), REGISTER, NULL },
   { string243, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_CLR_OFFSET), REGISTER, NULL },
   { string244, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_XOR_OFFSET), REGISTER, NULL },
-#elif defined(ARDUINO_SANTIAGO)
+#elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   { string232, (fn_ptr_type)INPUT, PINMODE, NULL },
   { string233, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
   { string234, (fn_ptr_type)OUTPUT, PINMODE, NULL },
   { string235, (fn_ptr_type)OUTPUT_OPENDRAIN, PINMODE, NULL },
+  { string236, (fn_ptr_type)AR_DEFAULT, ANALOGREFERENCE, NULL },
+  { string237, (fn_ptr_type)AR_INTERNAL, ANALOGREFERENCE, NULL },
+  { string238, (fn_ptr_type)AR_EXTERNAL, ANALOGREFERENCE, NULL },
 #endif
 };
 
@@ -6592,7 +6673,7 @@ boolean findsubstring (char *part, builtin_t name) {
 }
 
 void testescape () {
-  if (Serial.read() == '~') error2(PSTR("escape!"));
+  if (Serial.available() && Serial.read() == '~') { error2(PSTR("escape!")); } // Context = NIL; 
 }
 
 bool keywordp (object *obj) {
@@ -7152,7 +7233,7 @@ object *nextitem (gfun_t gfun) {
   if (ch == '\'') return (object *)QUO;
 
   // Parse string
-  if (ch == '"') return readstring('"', gfun);
+  if (ch == '"') return readstring('"', true, gfun);
 
   // Parse symbol, character, or number
   int index = 0, base = 10, sign = 1;
@@ -7342,7 +7423,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.4d "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.5 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
