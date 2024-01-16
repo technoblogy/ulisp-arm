@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.5 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 8th July 2023
+/* uLisp ARM Release 4.5a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 16th January 2024
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -225,7 +225,7 @@ const char LispLibrary[] PROGMEM = "";
   #define CPU_RP2040
 
 #elif defined(ARDUINO_MINIMA)
-  #define WORKSPACESIZE (2160-SDSIZE)    /* Objects (8*bytes) was 2160 */
+  #define WORKSPACESIZE (2032-SDSIZE)    /* Objects (8*bytes) */
   #include <EEPROM.h>
   #define EEPROMFLASH
   #define FLASHSIZE 8192                 /* Bytes */
@@ -236,7 +236,7 @@ const char LispLibrary[] PROGMEM = "";
   #define SDCARD_SS_PIN 10
 
 #elif defined(ARDUINO_UNOWIFIR4)
-  #define WORKSPACESIZE (1700-SDSIZE)    /* Objects (8*bytes) was 2160 */
+  #define WORKSPACESIZE (1700-SDSIZE)    /* Objects (8*bytes) */
   #include <EEPROM.h>
   #include "WiFiS3.h"
   #define EEPROMFLASH
@@ -7108,7 +7108,7 @@ void loadfromlibrary (object *env) {
 
 // For line editor
 const int TerminalWidth = 80;
-volatile int WritePtr = 0, ReadPtr = 0;
+volatile int WritePtr = 0, ReadPtr = 0, LastWritePtr = 0;
 const int KybdBufSize = 333; // 42*8 - 3
 char KybdBuf[KybdBufSize];
 volatile uint8_t KybdAvailable = 0;
@@ -7162,7 +7162,7 @@ void processkey (char c) {
   if (c == '\n' || c == '\r') {
     pserial('\n');
     KybdAvailable = 1;
-    ReadPtr = 0;
+    ReadPtr = 0; LastWritePtr = WritePtr;
     return;
   }
   if (c == 8 || c == 0x7f) {     // Backspace key
@@ -7171,6 +7171,9 @@ void processkey (char c) {
       Serial.write(8); Serial.write(' '); Serial.write(8);
       if (WritePtr) c = KybdBuf[WritePtr-1];
     }
+  } else if (c == 9) { // tab or ctrl-I
+    for (int i = 0; i < LastWritePtr; i++) Serial.write(KybdBuf[i]);
+    WritePtr = LastWritePtr;
   } else if (WritePtr < KybdBufSize) {
     KybdBuf[WritePtr++] = c;
     Serial.write(c);
@@ -7417,13 +7420,14 @@ void initgfx () {
 // Entry point from the Arduino IDE
 void setup () {
   Serial.begin(9600);
+  delay(2000);
   int start = millis();
   while ((millis() - start) < 5000) { if (Serial) break; }
   initworkspace();
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.5 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.5a "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
