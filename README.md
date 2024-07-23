@@ -1,5 +1,5 @@
 # ulisp-arm
-A version of the Lisp programming language for boards based on the ARM processor:
+A version of the Lisp programming language for boards based on the ARM processor, including:
 
 * Arduino Zero and MKRZero.
 * Arduino Uno R4 Minima and WiFi.
@@ -7,7 +7,7 @@ A version of the Lisp programming language for boards based on the ARM processor
 * Adafruit Metro M4, ItsyBitsy M4, Feather M4, and Grand Central M4.
 * Adafruit PyBadge and PyGamer.
 * Adafruit CLUE and ItsyBitsy nRF52840.
-* Raspberry Pi Pico and Raspberry Pi Pico W.
+* Raspberry Pi Pico and other RP2040 boards.
 * BBC Micro Bit.
 * Maxim MAX32620FTHR.
 * Teensy 4.0/4.1.
