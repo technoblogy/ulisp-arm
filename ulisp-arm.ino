@@ -1,6 +1,6 @@
-/* uLisp ARM Release 4.6a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 23rd July 2024
-   
+/* uLisp ARM Release 4.6b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 1st September 2024
+
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
 
@@ -193,7 +193,8 @@ const char LispLibrary[] = "";
   #undef MEMBANK
   #define MEMBANK DMAMEM
 
-#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) \
+  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040)
   #define WORKSPACESIZE (23000-SDSIZE)    /* Objects (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
@@ -202,6 +203,24 @@ const char LispLibrary[] = "";
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 320
   #define CPU_RP2040
+  #if defined(gfxsupport)
+  const int COLOR_WHITE = 0xffff, COLOR_BLACK = 0;
+  #include <Adafruit_GFX.h>    // Core graphics library
+  #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+  Adafruit_ST7789 tft = Adafruit_ST7789(5, 1, 3, 2, 0); // TTGO RP2040 TFT
+  #define TFT_BACKLIGHT 4
+  #define TFT_I2C_POWER 22
+  #endif
+
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_2)
+  #define WORKSPACESIZE (23000-SDSIZE)    /* Objects (8*bytes) */
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define FS_FILE_WRITE "w"
+  #define FS_FILE_READ "r"
+  #define CODESIZE 256                    /* Bytes */
+  #define STACKDIFF 320
+  #define CPU_RP2350
   #if defined(gfxsupport)
   const int COLOR_WHITE = 0xffff, COLOR_BLACK = 0;
   #include <Adafruit_GFX.h>    // Core graphics library
@@ -297,7 +316,7 @@ const char LispLibrary[] = "";
 
 #define issp(x)            (x == ' ' || x == '\n' || x == '\r' || x == '\t')
 #define isbr(x)            (x == ')' || x == '(' || x == '"' || x == '#' || x == '\'')
-#define fntype(x)          (getminmax((uint8_t)(x))>>6)
+#define fntype(x)          (getminmax((uint16_t)(x))>>6)
 #define longsymbolp(x)     (((x)->name & 0x03) == 0)
 #define longnamep(x)       (((x) & 0x03) == 0)
 #define arraysize(x)       (sizeof(x) / sizeof(x[0]))
@@ -2290,21 +2309,23 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 
 // Simplify board differences
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_GRAND_CENTRAL_M4) \
- || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) \
- || defined(ARDUINO_TEENSY41) || defined(ARDUINO_RASPBERRY_PI_PICO) \
- || defined(ARDUINO_RASPBERRY_PI_PICO_W)
+  || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) \
+  || defined(ARDUINO_TEENSY41) || defined(ARDUINO_RASPBERRY_PI_PICO) \
+  || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2)
 #define ULISP_SPI1
 #endif
 #if defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_BBC_MICROBIT_V2) \
- || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) \
- || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
- || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
- || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_NRF52840_CIRCUITPLAY)
+  || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) \
+  || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) \
+  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_GRAND_CENTRAL_M4) \
+  || defined(ARDUINO_NRF52840_CIRCUITPLAY)
 #define ULISP_I2C1
 #endif
 #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 #define ULISP_SERIAL3
-#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2)
 #define ULISP_SERIAL2
 #elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
 #define ULISP_SERIAL1
@@ -2551,15 +2572,16 @@ void checkanalogread (int pin) {
 #elif defined(ARDUINO_NRF52840_CLUE)
   if (!((pin>=0 && pin<=4) || pin==10 || pin==12 || pin==16)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_NRF52840_CIRCUITPLAY)
-   if (!(pin==0 || (pin>=2 && pin<=3) || pin==6 || (pin>=9 && pin<=10) || (pin>=22 && pin<=23))) error(invalidpin, number(pin));
+  if (!(pin==0 || (pin>=2 && pin<=3) || pin==6 || (pin>=9 && pin<=10) || (pin>=22 && pin<=23))) error(invalidpin, number(pin));
 #elif defined(MAX32620)
   if (!(pin>=49 && pin<=52)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY40)
   if (!((pin>=14 && pin<=27))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=14 && pin<=27) || (pin>=38 && pin<=41))) error(invalidpin, number(pin));
-#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
-   || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
+  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
+  || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040)
   if (!(pin>=26 && pin<=29)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=14 && pin<=21))) error(invalidpin, number(pin));
@@ -2606,14 +2628,15 @@ void checkanalogwrite (int pin) {
 #elif defined(ARDUINO_NRF52840_CLUE)
   if (!(pin>=0 && pin<=46)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_NRF52840_CIRCUITPLAY)
-   if (!(pin>=0 && pin<=35)) error(invalidpin, number(pin));
+  if (!(pin>=0 && pin<=35)) error(invalidpin, number(pin));
 #elif defined(MAX32620)
   if (!((pin>=20 && pin<=29) || pin==32 || (pin>=40 && pin<=48))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY40)
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || (pin>=33 && pin<=39))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_TEENSY41)
   if (!((pin>=0 && pin<=15) || (pin>=18 && pin<=19) || (pin>=22 && pin<=25) || (pin>=28 && pin<=29) || pin==33 || (pin>=36 && pin<=37))) error(invalidpin, number(pin));
-#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
+#elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
+  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040)
   if (!(pin>=0 && pin<=29)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
@@ -2630,8 +2653,9 @@ const int scale[] = {4186,4435,4699,4978,5274,5588,5920,6272,6645,7040,7459,7902
 void playnote (int pin, int note, int octave) {
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_NRF52840_CIRCUITPLAY) \
  || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
- || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
- || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_SEEED_XIAO_RP2040)
+ || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
+ || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) \
+ || defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_SEEED_XIAO_RP2040)
   int oct = octave + note/12;
   int prescaler = 8 - oct;
   if (prescaler<0 || prescaler>8) error("octave out of range", number(oct));
@@ -2644,8 +2668,9 @@ void playnote (int pin, int note, int octave) {
 void nonote (int pin) {
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_NRF52840_CIRCUITPLAY) \
  || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
- || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
- || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_SEEED_XIAO_RP2040)
+ || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
+ || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) \
+ || defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_SEEED_XIAO_RP2040)
   noTone(pin);
 #else
   (void) pin;
@@ -2932,9 +2957,9 @@ object *sp_defvar (object *args, object *env) {
 }
 
 object *sp_setq (object *args, object *env) {
-  object *arg = nil;
+  object *arg = nil; builtin_t setq = Context;
   while (args != NULL) {
-    if (cdr(args) == NULL) error2(oddargs);
+    if (cdr(args) == NULL) { Context = setq; error2(oddargs); }
     object *pair = findvalue(first(args), env);
     arg = eval(second(args), env);
     cdr(pair) = arg;
@@ -3069,10 +3094,10 @@ object *sp_decf (object *args, object *env) {
 }
 
 object *sp_setf (object *args, object *env) {
-  int bit;
+  int bit; builtin_t setf = Context;
   object *arg = nil;
   while (args != NULL) {
-    if (cdr(args) == NULL) error2(oddargs);
+    if (cdr(args) == NULL) { Context = setf; error2(oddargs); }
     object **loc = place(first(args), env, &bit);
     arg = eval(second(args), env);
     if (bit == -1) *loc = arg;
@@ -4805,8 +4830,9 @@ object *fn_analogreference (object *args, object *env) {
   object *arg = first(args);
   #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) \
    || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
-   || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) \
-   || defined(ARDUINO_NANO_MATTER) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER)
+   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
+   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_NANO_MATTER) \
+   || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER)
   error2("not supported");
   #else
   analogReference((eAnalogReference)checkkeyword(arg));
@@ -4817,8 +4843,9 @@ object *fn_analogreference (object *args, object *env) {
 object *fn_analogreadresolution (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  #if defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
-   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER)
+  #if defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
+  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) \
+  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER)
   error2("not supported");
   #else
   analogReadResolution(checkinteger(arg));
@@ -7746,7 +7773,7 @@ void initgfx () {
   tft.fillScreen(0);
   pinMode(34, OUTPUT); // Backlight
   digitalWrite(34, HIGH);
-  #elif defined(ARDUINO_RASPBERRY_PI_PICO)
+  #elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_2)
   tft.init(135, 240);
   pinMode(TFT_I2C_POWER, OUTPUT);
   digitalWrite(TFT_I2C_POWER, HIGH);
@@ -7767,7 +7794,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.6a "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.6b "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
