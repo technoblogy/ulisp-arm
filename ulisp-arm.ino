@@ -1,6 +1,5 @@
-/* uLisp ARM Release 4.6b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 1st September 2024
-
+/* uLisp ARM Release 4.6c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 6th October 2024
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
 
@@ -213,7 +212,11 @@ const char LispLibrary[] = "";
   #endif
 
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_2)
-  #define WORKSPACESIZE (23000-SDSIZE)    /* Objects (8*bytes) */
+  #if defined(__riscv)
+  #define WORKSPACESIZE (42500-SDSIZE)    /* Objects (8*bytes) */
+  #else
+  #define WORKSPACESIZE (47000-SDSIZE)    /* Objects (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define FS_FILE_WRITE "w"
@@ -642,9 +645,16 @@ const char errorhandling[] = ":error-handling";
 const char wifi[] = ":wi-fi";
 const char gfx[] = ":gfx";
 const char sdcard[] = ":sd-card";
+const char arm[] = ":arm";
+const char riscv[] = ":risc-v";
 
 object *features () {
   object *result = NULL;
+  #if defined(__riscv)
+  push(internlong((char *)riscv), result);
+  #else
+  push(internlong((char *)arm), result);
+  #endif
   #if defined(sdcardsupport)
   push(internlong((char *)sdcard), result);
   #endif
@@ -5990,6 +6000,20 @@ const char string253[] = ":gpio-oe";
 const char string254[] = ":gpio-oe-set";
 const char string255[] = ":gpio-oe-clr";
 const char string256[] = ":gpio-oe-xor";
+#elif defined(CPU_RP2350)
+const char string248[] = ":input";
+const char string249[] = ":input-pullup";
+const char string250[] = ":input-pulldown";
+const char string251[] = ":output";
+const char string252[] = ":gpio-in";
+const char string253[] = ":gpio-out";
+const char string254[] = ":gpio-out-set";
+const char string255[] = ":gpio-out-clr";
+const char string256[] = ":gpio-out-xor";
+const char string257[] = ":gpio-oe";
+const char string258[] = ":gpio-oe-set";
+const char string259[] = ":gpio-oe-clr";
+const char string260[] = ":gpio-oe-xor";
 #elif defined(CPU_RA4M1)
 const char string244[] = ":input";
 const char string245[] = ":input-pullup";
@@ -6959,6 +6983,20 @@ const tbl_entry_t lookup_table[] = {
   { string254, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_SET_OFFSET), REGISTER, NULL },
   { string255, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_CLR_OFFSET), REGISTER, NULL },
   { string256, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_XOR_OFFSET), REGISTER, NULL },
+#elif defined(CPU_RP2350)
+  { string248, (fn_ptr_type)INPUT, PINMODE, NULL },
+  { string249, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
+  { string250, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
+  { string251, (fn_ptr_type)OUTPUT, PINMODE, NULL },
+  { string252, (fn_ptr_type)(SIO_BASE+SIO_GPIO_IN_OFFSET), REGISTER, NULL },
+  { string253, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_OFFSET), REGISTER, NULL },
+  { string254, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_SET_OFFSET), REGISTER, NULL },
+  { string255, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_CLR_OFFSET), REGISTER, NULL },
+  { string256, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OUT_XOR_OFFSET), REGISTER, NULL },
+  { string257, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_OFFSET), REGISTER, NULL },
+  { string258, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_SET_OFFSET), REGISTER, NULL },
+  { string259, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_CLR_OFFSET), REGISTER, NULL },
+  { string260, (fn_ptr_type)(SIO_BASE+SIO_GPIO_OE_XOR_OFFSET), REGISTER, NULL },
 #elif defined(CPU_RA4M1)
   { string244, (fn_ptr_type)INPUT, PINMODE, NULL },
   { string245, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
@@ -7059,7 +7097,7 @@ bool keywordp (object *obj) {
 extern uint32_t ENDSTACK;  // Bottom of stack
 
 object *eval (object *form, object *env) {
-  register int *sp asm ("r13");
+  register int *sp asm ("sp");
   int TC=0;
   EVAL:
   // Enough space?
@@ -7794,7 +7832,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.6b "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.6c "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
