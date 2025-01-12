@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.7 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 3rd November 2024
+/* uLisp ARM Release 4.7a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 12th January 2025
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -79,7 +79,7 @@ const char LispLibrary[] = "";
   #define CPU_ATSAMD21
 
 #elif defined(ARDUINO_SAMD_ZERO)          /* Put this last, otherwise overrides the Adafruit boards */
-  #define WORKSPACESIZE (2640-SDSIZE)     /* Objects (8*bytes) */
+  #define WORKSPACESIZE (2500-SDSIZE)     /* Objects (8*bytes) */
   #define CPUFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define CODESIZE 128                    /* Bytes */
@@ -263,6 +263,22 @@ const char LispLibrary[] = "";
   #endif
   #define CODESIZE 256                    /* Bytes */
   #define LITTLEFS
+  #include <LittleFS.h>
+  #define FS_FILE_WRITE "w"
+  #define FS_FILE_READ "r"
+  #define CPU_RP2350
+
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_2W)
+  #if defined(__riscv)
+  #define WORKSPACESIZE (34850-SDSIZE)    /* Objects (8*bytes) */
+  #define STACKDIFF 580
+  #else
+  #define WORKSPACESIZE (39200-SDSIZE)    /* Objects (8*bytes) */
+  #define STACKDIFF 520
+  #endif
+  #define CODESIZE 256                    /* Bytes */
+  #define LITTLEFS
+  #include <WiFi.h>
   #include <LittleFS.h>
   #define FS_FILE_WRITE "w"
   #define FS_FILE_READ "r"
@@ -2439,26 +2455,29 @@ void I2Cstop (TwoWire *port, uint8_t read) {
   || defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4) || defined(ARDUINO_TEENSY40) \
   || defined(ARDUINO_TEENSY41) || defined(ARDUINO_RASPBERRY_PI_PICO) \
   || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
-  || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2W) || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
 #define ULISP_SPI1
 #endif
 #if defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_BBC_MICROBIT_V2) \
   || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) \
   || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
-  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_PIMORONI_PICO_PLUS_2) \
-  || defined(ARDUINO_GRAND_CENTRAL_M4) || defined(ARDUINO_NRF52840_CIRCUITPLAY)
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
+  || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_GRAND_CENTRAL_M4) \
+  || defined(ARDUINO_NRF52840_CIRCUITPLAY)
 #define ULISP_I2C1
 #endif
 #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
 #define ULISP_SERIAL3
 #elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
-  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
+  || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
 #define ULISP_SERIAL2
 #elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
 #define ULISP_SERIAL1
 #endif
-#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_UNOWIFIR4)
+#if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
+|| defined(ARDUINO_UNOWIFIR4)
 #define ULISP_WIFI
 #endif
 
@@ -2710,7 +2729,8 @@ void checkanalogread (int pin) {
 #elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
   || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040) \
-  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
+  || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
   if (!(pin>=26 && pin<=29)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=14 && pin<=21))) error(invalidpin, number(pin));
@@ -2769,7 +2789,7 @@ void checkanalogwrite (int pin) {
   || defined(ARDUINO_SEEED_XIAO_RP2040) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
   || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
   if (!(pin>=0 && pin<=29)) error(invalidpin, number(pin));
-#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2W)
   if (!((pin>=0 && pin<=29) || pin == 32)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=0 && pin<=21))) error(invalidpin, number(pin));
@@ -2784,9 +2804,9 @@ void playnote (int pin, int note, int octave) {
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_NRF52840_CIRCUITPLAY) \
   || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
   || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
-  || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_WIO_TERMINAL) \
-  || defined(ARDUINO_SEEED_XIAO_RP2040) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
-  || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
+  || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040) \
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
+  || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_WIO_TERMINAL) 
   int oct = octave + note/12;
   int prescaler = 8 - oct;
   if (prescaler<0 || prescaler>8) error("octave out of range", number(oct));
@@ -2799,10 +2819,10 @@ void playnote (int pin, int note, int octave) {
 void nonote (int pin) {
 #if defined(ARDUINO_NRF52840_CLUE) || defined(ARDUINO_NRF52840_CIRCUITPLAY) \
   || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
-  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
-  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) \
-  || defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_SEEED_XIAO_RP2040) \
-  || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
+  || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
+  || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040) \
+  || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
+  || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_WIO_TERMINAL) 
   noTone(pin);
 #else
   (void) pin;
@@ -4504,8 +4524,10 @@ object *fn_stringgreatereq (object *args, object *env) {
 }
 
 object *fn_sort (object *args, object *env) {
-  if (first(args) == NULL) return nil;
-  object *list = cons(nil,first(args));
+  object *arg = first(args);
+  if (!listp(arg)) error(notalist, arg);
+  if (arg == NULL) return nil;
+  object *list = cons(nil, arg);
   protect(list);
   object *predicate = second(args);
   object *compare = cons(NULL, cons(NULL, NULL));
@@ -4958,10 +4980,10 @@ object *fn_analogreference (object *args, object *env) {
   object *arg = first(args);
   #if defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) \
    || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
-   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_PIMORONI_PICO_PLUS_2) \
-   || defined(ARDUINO_PIMORONI_TINY2350) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) \
-   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_NANO_MATTER) \
-   || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER)
+   || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2040_ADALOGGER) \
+   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
+   || defined(ARDUINO_RASPBERRY_PI_PICO_2W) || defined(ARDUINO_PIMORONI_PICO_PLUS_2) \
+   || defined(ARDUINO_PIMORONI_TINY2350) || defined(ARDUINO_NANO_MATTER)
   error2("not supported");
   #else
   analogReference((eAnalogReference)checkkeyword(arg));
@@ -7986,7 +8008,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.7 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.7a "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
