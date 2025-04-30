@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.7b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 20th March 2025
+/* uLisp ARM Release 4.7d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 30th April 2025
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -1807,6 +1807,7 @@ void pslice (object *array, int size, int slice, object *dims, pfun_t pfun, bool
         (index & (sizeof(int)==4 ? 0x1F : 0x0F)) & 1, pfun);
       else printobject(*arrayref(array, index, size), pfun);
     } else { pfun('('); pslice(array, size, index, cdr(dims), pfun, bitp); pfun(')'); }
+    testescape();
   }
 }
 
@@ -2349,6 +2350,7 @@ object *dobody (object *args, object *env, bool star) {
   protect(head);
   object *ptr = head;
   object *newenv = env;
+  protect(newenv);
   while (varlist != NULL) {
     object *varform = first(varlist);
     object *var, *init = NULL, *step = NULL;
@@ -2363,7 +2365,9 @@ object *dobody (object *args, object *env, bool star) {
       }
     }  
     object *pair = cons(var, init);
+    unprotect(); // newenv
     push(pair, newenv);
+    protect(newenv);
     if (star) env = newenv;
     object *cell = cons(cons(step, pair), NULL);
     cdr(ptr) = cell; ptr = cdr(ptr);
@@ -2375,9 +2379,11 @@ object *dobody (object *args, object *env, bool star) {
   while (eval(endtest, env) == NULL) {
     object *forms = cddr(args);
     while (forms != NULL) {
-    object *result = eval(car(forms), env);
+      object *result = eval(car(forms), env);
       if (tstflag(RETURNFLAG)) {
         clrflag(RETURNFLAG);
+        unprotect(); // newenv
+        unprotect(); // head
         return result;
       }
       forms = cdr(forms);
@@ -2405,7 +2411,8 @@ object *dobody (object *args, object *env, bool star) {
       count--;
     }
   }
-  unprotect();
+  unprotect(); // newenv
+  unprotect(); // head
   return eval(tf_progn(results, env), env);
 }
 
@@ -2456,7 +2463,7 @@ void I2Cstop (TwoWire *port, uint8_t read) {
   || defined(ARDUINO_TEENSY41) || defined(ARDUINO_RASPBERRY_PI_PICO) \
   || defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2) \
   || defined(ARDUINO_RASPBERRY_PI_PICO_2W) || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
-#define ULISP_SPI1
+#define ULISP_HOWMANYSPI 2
 #endif
 #if defined(ARDUINO_WIO_TERMINAL) || defined(ARDUINO_BBC_MICROBIT_V2) \
   || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41) || defined(MAX32620) \
@@ -2465,16 +2472,16 @@ void I2Cstop (TwoWire *port, uint8_t read) {
   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
   || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_GRAND_CENTRAL_M4) \
   || defined(ARDUINO_NRF52840_CIRCUITPLAY)
-#define ULISP_I2C1
+#define ULISP_HOWMANYI2C 2
 #endif
 #if defined(ARDUINO_SAM_DUE) || defined(ARDUINO_TEENSY40) || defined(ARDUINO_TEENSY41)
-#define ULISP_SERIAL3
+#define ULISP_HOWMANYSERIAL 4
 #elif defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_RASPBERRY_PI_PICO_W) \
   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
   || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
-#define ULISP_SERIAL2
+#define ULISP_HOWMANYSERIAL 3
 #elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
-#define ULISP_SERIAL1
+#define ULISP_HOWMANYSERIAL 2
 #endif
 #if defined(ARDUINO_RASPBERRY_PI_PICO_W) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
 || defined(ARDUINO_UNOWIFIR4)
@@ -2482,20 +2489,20 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 #endif
 
 inline int spiread () { return SPI.transfer(0); }
-#if defined(ULISP_SPI1)
+#if ULISP_HOWMANYSPI == 2
 inline int spi1read () { return SPI1.transfer(0); }
 #endif
 inline int i2cread () { return I2Cread(&Wire); }
-#if defined(ULISP_I2C1)
+#if ULISP_HOWMANYI2C == 2
 inline int i2c1read () { return I2Cread(&Wire1); }
 #endif
-#if defined(ULISP_SERIAL3)
+#if ULISP_HOWMANYSERIAL == 4
 inline int serial3read () { while (!Serial3.available()) testescape(); return Serial3.read(); }
 #endif
-#if defined(ULISP_SERIAL3) || defined(ULISP_SERIAL2)
+#if ULISP_HOWMANYSERIAL == 4 || ULISP_HOWMANYSERIAL == 3
 inline int serial2read () { while (!Serial2.available()) testescape(); return Serial2.read(); }
 #endif
-#if defined(ULISP_SERIAL3) || defined(ULISP_SERIAL2) || defined(ULISP_SERIAL1)
+#if ULISP_HOWMANYSERIAL == 4 || ULISP_HOWMANYSERIAL == 3 || ULISP_HOWMANYSERIAL == 2
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 #endif
 #if defined(sdcardsupport)
@@ -2526,14 +2533,14 @@ inline int WiFiread () {
 #endif
 
 void serialbegin (int address, int baud) {
-  #if defined(ULISP_SERIAL3)
+  #if ULISP_HOWMANYSERIAL == 4
   if (address == 1) Serial1.begin((long)baud*100);
   else if (address == 2) Serial2.begin((long)baud*100);
   else if (address == 3) Serial3.begin((long)baud*100);
-  #elif defined(ULISP_SERIAL2)
+  #elif ULISP_HOWMANYSERIAL == 3
   if (address == 1) Serial1.begin((long)baud*100);
   else if (address == 2) Serial2.begin((long)baud*100);
-  #elif defined(ULISP_SERIAL1)
+  #elif ULISP_HOWMANYSERIAL == 2
   if (address == 1) Serial1.begin((long)baud*100);
   #else
   (void) baud;
@@ -2543,14 +2550,14 @@ void serialbegin (int address, int baud) {
 }
 
 void serialend (int address) {
-  #if defined(ULISP_SERIAL3)
+  #if ULISP_HOWMANYSERIAL == 4
   if (address == 1) {Serial1.flush(); Serial1.end(); }
   else if (address == 2) {Serial2.flush(); Serial2.end(); }
   else if (address == 3) {Serial3.flush(); Serial3.end(); }
-  #elif defined(ULISP_SERIAL2)
+  #elif ULISP_HOWMANYSERIAL == 3
   if (address == 1) {Serial1.flush(); Serial1.end(); }
   else if (address == 2) {Serial2.flush(); Serial2.end(); }
-  #elif defined(ULISP_SERIAL1)
+  #elif ULISP_HOWMANYSERIAL == 2
   if (address == 1) {Serial1.flush(); Serial1.end(); }
   #else
   if (false);
@@ -2568,25 +2575,25 @@ gfun_t gstreamfun (object *args) {
   }
   if (streamtype == I2CSTREAM) {
     if (address < 128) gfun = i2cread;
-    #if defined(ULISP_I2C1)
+    #if ULISP_HOWMANYI2C == 2
     else gfun = i2c1read;
     #endif
   } else if (streamtype == SPISTREAM) {
     if (address < 128) gfun = spiread;
-    #if defined(ULISP_SPI1)
+    #if ULISP_HOWMANYSPI == 2
     else gfun = spi1read;
     #endif
   }
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) gfun = gserial;
-    #if defined(ULISP_SERIAL3)
+    #if ULISP_HOWMANYSERIAL == 4
     else if (address == 1) gfun = serial1read;
     else if (address == 2) gfun = serial2read;
     else if (address == 3) gfun = serial3read;
-    #elif defined(ULISP_SERIAL2)
+    #elif ULISP_HOWMANYSERIAL == 3
     else if (address == 1) gfun = serial1read;
     else if (address == 2) gfun = serial2read;
-    #elif defined(ULISP_SERIAL1)
+    #elif ULISP_HOWMANYSERIAL == 2
     else if (address == 1) gfun = serial1read;
     #endif
   }
@@ -2601,21 +2608,21 @@ gfun_t gstreamfun (object *args) {
 }
 
 inline void spiwrite (char c) { SPI.transfer(c); }
-#if defined(ULISP_SPI1)
+#if ULISP_HOWMANYSPI == 2
 inline void spi1write (char c) { SPI1.transfer(c); }
 #endif
 inline void i2cwrite (char c) { I2Cwrite(&Wire, c); }
-#if defined(ULISP_I2C1)
+#if ULISP_HOWMANYI2C == 2
 inline void i2c1write (char c) { I2Cwrite(&Wire1, c); }
 #endif
-#if defined(ULISP_SERIAL3)
+#if ULISP_HOWMANYSERIAL == 4
 inline void serial1write (char c) { Serial1.write(c); }
 inline void serial2write (char c) { Serial2.write(c); }
 inline void serial3write (char c) { Serial3.write(c); }
-#elif defined(ULISP_SERIAL2)
+#elif ULISP_HOWMANYSERIAL == 3
 inline void serial2write (char c) { Serial2.write(c); }
 inline void serial1write (char c) { Serial1.write(c); }
-#elif defined(ULISP_SERIAL1)
+#elif ULISP_HOWMANYSERIAL == 2
 inline void serial1write (char c) { Serial1.write(c); }
 #endif
 #if defined(sdcardsupport)
@@ -2638,24 +2645,24 @@ pfun_t pstreamfun (object *args) {
   }
   if (streamtype == I2CSTREAM) {
     if (address < 128) pfun = i2cwrite;
-    #if defined(ULISP_I2C1)
+    #if ULISP_HOWMANYI2C == 2
     else pfun = i2c1write;
     #endif
   } else if (streamtype == SPISTREAM) {
     if (address < 128) pfun = spiwrite;
-    #if defined(ULISP_SPI1)
+    #if ULISP_HOWMANYSPI == 2
     else pfun = spi1write;
     #endif
   } else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
-    #if defined(ULISP_SERIAL3)
+    #if ULISP_HOWMANYSERIAL == 4
     else if (address == 1) pfun = serial1write;
     else if (address == 2) pfun = serial2write;
     else if (address == 3) pfun = serial3write;
-    #elif defined(ULISP_SERIAL2)
+    #elif ULISP_HOWMANYSERIAL == 3
     else if (address == 1) pfun = serial1write;
     else if (address == 2) pfun = serial2write;
-    #elif defined(ULISP_SERIAL1)
+    #elif ULISP_HOWMANYSERIAL == 2
     else if (address == 1) pfun = serial1write;
     #endif
   }
@@ -2969,6 +2976,7 @@ void superprint (object *form, int lm, pfun_t pfun) {
       form = cdr(form);
     }
     pfun(')');
+    testescape();
   }
 }
 
@@ -3442,7 +3450,7 @@ object *sp_withi2c (object *args, object *env) {
   }
   // Top bit of address is I2C port
   TwoWire *port = &Wire;
-  #if defined(ULISP_I2C1)
+  #if ULISP_HOWMANYI2C == 2
   if (address > 127) port = &Wire1;
   #endif
   I2Cinit(port, 1); // Pullups
@@ -3484,7 +3492,7 @@ object *sp_withspi (object *args, object *env) {
   object *pair = cons(var, stream(SPISTREAM, pin + 128*address));
   push(pair,env);
   SPIClass *spiClass = &SPI;
-  #if defined(ULISP_SPI1)
+  #if ULISP_HOWMANYSPI == 2
   if (address == 1) spiClass = &SPI1;
   #endif
   spiClass->begin();
@@ -4822,14 +4830,12 @@ object *fn_readline (object *args, object *env) {
   return readstring('\n', false, gfun);
 }
 
-inline void serialwrite (char c) { Serial.write(c); }
-
 object *fn_writebyte (object *args, object *env) {
   (void) env;
-  int value = checkinteger(first(args));
+  int c = checkinteger(first(args));
   pfun_t pfun = pstreamfun(cdr(args));
-  if (pfun == pserial) pfun = serialwrite;
-  (pfun)(value);
+  if (c == '\n' && pfun == pserial) Serial.write('\n');
+  else (pfun)(c);
   return nil;
 }
 
@@ -4871,7 +4877,7 @@ object *fn_restarti2c (object *args, object *env) {
   if (stream>>8 != I2CSTREAM) error2("not an i2c stream");
   TwoWire *port;
   if (address < 128) port = &Wire;
-  #if defined(ULISP_I2C1)
+  #if ULISP_HOWMANYI2C == 2
   else port = &Wire1;
   #endif
   return I2Crestart(port, address & 0x7F, read) ? tee : nil;
@@ -7237,6 +7243,9 @@ bool findsubstring (char *part, builtin_t name) {
 }
 
 void testescape () {
+  static unsigned long n;
+  if (millis()-n < 500) return;
+  n = millis();
   if (Serial.available() && Serial.read() == '~') error2("escape!");
 }
 
@@ -7640,6 +7649,7 @@ void plist (object *form, pfun_t pfun) {
   while (form != NULL && listp(form)) {
     pfun(' ');
     printobject(car(form), pfun);
+    testescape();
     form = cdr(form);
   }
   if (form != NULL) {
@@ -8021,7 +8031,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.7b "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.7d "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
