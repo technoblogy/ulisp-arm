@@ -1,4 +1,4 @@
-/* uLisp ARM Release 4.8a - www.ulisp.com
+/* uLisp ARM Release 4.8b - www.ulisp.com
    David Johnson-Davies - www.technoblogy.com - 26th May 2025
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
@@ -917,7 +917,7 @@ void gc (object *form, object *env) {
 */
 void movepointer (object *from, object *to) {
   uintptr_t limit = ((uintptr_t)(from) - (uintptr_t)(Workspace))/sizeof(object);
-  for (uintptr_t i=0; i<limit; i++) {
+  for (uintptr_t i=0; i<=limit; i++) {
     object *obj = &Workspace[i];
     unsigned int type = (obj->type) & ~MARKBIT;
     if (marked(obj) && (type >= ARRAY || type==ZZERO || (type == SYMBOL && longsymbolp(obj)))) {
@@ -927,7 +927,7 @@ void movepointer (object *from, object *to) {
     }
   }
   // Fix strings and long symbols
-  for (uintptr_t i=0; i<limit; i++) {
+  for (uintptr_t i=0; i<=limit; i++) {
     object *obj = &Workspace[i];
     if (marked(obj)) {
       unsigned int type = (obj->type) & ~MARKBIT;
@@ -9638,7 +9638,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8a "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8b "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
