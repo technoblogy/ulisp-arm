@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.8b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 26th May 2025
+/* uLisp ARM Release 4.8c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 31st May 2025
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -45,12 +45,14 @@ const char LispLibrary[] = "";
 
 // ATSAMD21 boards ***************************************************************
 
-#if defined(ARDUINO_GEMMA_M0) || defined(ARDUINO_SEEED_XIAO_M0) || defined(ARDUINO_QTPY_M0)
+#if defined(ARDUINO_GEMMA_M0) || defined(ARDUINO_SEEED_XIAO_M0) || defined(ARDUINO_QTPY_M0) \
+  || defined(ARDUINO_PIXELTRINKEY_M0)
   #define WORKSPACESIZE (2816-SDSIZE)     /* Objects (8*bytes) */
   #define CPUFLASH
   #define FLASHSIZE 32768                 /* Bytes */
   #define CODESIZE 128                    /* Bytes */
   #define STACKDIFF 320
+  #define LED_BUILTIN 0
   #define CPU_ATSAMD21
 
 #elif defined(ARDUINO_ITSYBITSY_M0) || defined(ARDUINO_SAMD_FEATHER_M0_EXPRESS)
@@ -2488,7 +2490,8 @@ enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM, WIFISTREAM, STRINGST
   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
   || defined(ARDUINO_PIMORONI_PICO_PLUS_2)
 #define ULISP_HOWMANYSERIAL 3
-#elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405)
+#elif !defined(CPU_NRF51822) && !defined(CPU_NRF52833) && !defined(ARDUINO_FEATHER_F405) \
+  && !defined(ARDUINO_PIXELTRINKEY_M0)
 #define ULISP_HOWMANYSERIAL 2
 #endif
 
@@ -2770,16 +2773,14 @@ gfun_t gstreamfun (object *args) {
 void checkanalogread (int pin) {
 #if defined(ARDUINO_SAM_DUE)
   if (!(pin>=54 && pin<=65)) error(invalidpin, number(pin));
-#elif defined(ARDUINO_SAMD_ZERO)
-  if (!(pin>=14 && pin<=19)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!(pin>=15 && pin<=21)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_ITSYBITSY_M0)
   if (!(pin>=14 && pin<=25)) error(invalidpin, number(pin));
-#elif defined(ARDUINO_NEOTRINKEY_M0)
-  if (!(pin==1 || pin==2 || pin==6)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_GEMMA_M0)
   if (!(pin>=8 && pin<=10)) error(invalidpin, number(pin));
+#elif defined(ARDUINO_PIXELTRINKEY_M0)
+  if (!(pin==0)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_QTPY_M0)
   if (!((pin>=0 && pin<=3) || (pin>=6 && pin<=10))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_SEEED_XIAO_M0)
@@ -2824,20 +2825,18 @@ void checkanalogread (int pin) {
   if (!(pin>=26 && pin<=29)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=14 && pin<=21))) error(invalidpin, number(pin));
+#elif defined(ARDUINO_SAMD_ZERO) // Put last
+  if (!(pin>=14 && pin<=19)) error(invalidpin, number(pin));
 #endif
 }
 
 void checkanalogwrite (int pin) {
 #if defined(ARDUINO_SAM_DUE)
   if (!((pin>=2 && pin<=13) || pin==66 || pin==67)) error(invalidpin, number(pin));
-#elif defined(ARDUINO_SAMD_ZERO)
-  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || pin==14)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_SAMD_MKRZERO)
   if (!((pin>=0 && pin<=8) || pin==10 || pin==18 || pin==19)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_ITSYBITSY_M0)
   if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || (pin>=15 && pin<=16) || (pin>=22 && pin<=25))) error(invalidpin, number(pin));
-#elif defined(ARDUINO_NEOTRINKEY_M0)
-  error2("not supported");
 #elif defined(ARDUINO_GEMMA_M0)
   if (!(pin==0 || pin==2 || pin==9 || pin==10)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_QTPY_M0)
@@ -2883,6 +2882,8 @@ void checkanalogwrite (int pin) {
   if (!((pin>=0 && pin<=29) || pin == 32)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=0 && pin<=21))) error(invalidpin, number(pin));
+#elif defined(ARDUINO_SAMD_ZERO) // Put last
+  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=13) || pin==14)) error(invalidpin, number(pin));
 #endif
 }
 
@@ -8126,7 +8127,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8b "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8c "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
