@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.8c - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 31st May 2025
+/* uLisp ARM Release 4.8d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 9th August 2025
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -12,8 +12,8 @@ const char LispLibrary[] = "";
 // #define resetautorun
 #define printfreespace
 // #define printgcs
-// #define sdcardsupport
-// #define gfxsupport
+#define sdcardsupport
+#define gfxsupport
 // #define lisplibrary
 #define assemblerlist
 // #define lineeditor
@@ -2514,9 +2514,12 @@ void serial1write (char c) { Serial1.write(c); }
 void serial1write (char c) { Serial1.write(c); }
 #endif
 #if defined(sdcardsupport)
+File SDpfile, SDgfile;
 void SDwrite (char c) { SDpfile.write(uint8_t(c)); } // Fix for RP2040
 #endif
 #if defined(ULISP_WIFI)
+WiFiClient client;
+WiFiServer server(80);
 void WiFiwrite (char c) { client.write(c); }
 #endif
 #if defined(gfxsupport)
@@ -2541,18 +2544,11 @@ int serial2read () { while (!Serial2.available()) testescape(); return Serial2.r
 int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 #endif
 #if defined(sdcardsupport)
-File SDpfile, SDgfile;
 int SDread () { return SDgfile.read(); }
 #endif
 
 #if defined(ULISP_WIFI)
-WiFiClient client;
-WiFiServer server(80);
-
-int WiFiread () {
-  while (!client.available()) testescape();
-  return client.read();
-}
+int WiFiread () { while (!client.available()) testescape(); return client.read(); }
 #endif
 
 void serialbegin (int address, int baud) {
