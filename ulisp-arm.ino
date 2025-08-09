@@ -12,8 +12,8 @@ const char LispLibrary[] = "";
 // #define resetautorun
 #define printfreespace
 // #define printgcs
-#define sdcardsupport
-#define gfxsupport
+// #define sdcardsupport
+// #define gfxsupport
 // #define lisplibrary
 #define assemblerlist
 // #define lineeditor
