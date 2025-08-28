@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.8d - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 9th August 2025
+/* uLisp ARM Release 4.8e - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 28th August 2025
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -506,7 +506,7 @@ char LastPrint = 0;
 // Flags
 enum flag { PRINTREADABLY, RETURNFLAG, ESCAPE, EXITEDITOR, LIBRARYLOADED, NOESC, NOECHO, MUFFLEERRORS, BACKTRACE };
 typedef uint16_t flags_t;
-volatile flags_t Flags = 1<<PRINTREADABLY; // Set by default
+flags_t Flags = 1<<PRINTREADABLY; // Set by default
 
 // Forward references
 object *tee;
@@ -3853,7 +3853,9 @@ object *fn_keywordp (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   if (!symbolp(arg)) return nil;
-  return (keywordp(arg) || colonp(arg->name)) ? tee : nil;
+  if (colonp(arg->name)) return tee;
+  if (keywordp(arg)) return (number((int)lookupfn(builtin(arg->name))));
+  return nil;
 }
 
 object *fn_setfn (object *args, object *env) {
@@ -4515,24 +4517,46 @@ object *fn_ceiling (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   args = cdr(args);
-  if (args != NULL) return number(ceil(checkintfloat(arg) / checkintfloat(first(args))));
-  else return number(ceil(checkintfloat(arg)));
+  if (args != NULL) {
+    object *arg2 = first(args);
+    if (integerp(arg) && integerp(arg2)) {
+      int num = arg->integer, den = arg2->integer, quo = num/den, rem = num-(quo*den);
+      if (((num<0) != (den<0)) || rem==0) return number(quo); else return number(quo+1);
+    } else return number(ceil(checkintfloat(arg) / checkintfloat(first(args))));
+  } else {
+    if (integerp(arg)) return number(arg->integer);
+    else return number(ceil(checkintfloat(arg)));
+  }
 }
 
 object *fn_floor (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   args = cdr(args);
-  if (args != NULL) return number(floor(checkintfloat(arg) / checkintfloat(first(args))));
-  else return number(floor(checkintfloat(arg)));
+  if (args != NULL) {
+    object *arg2 = first(args);
+    if (integerp(arg) && integerp(arg2)) {
+      int num = arg->integer, den = arg2->integer, quo = num/den, rem = num-(quo*den);
+      if (((num<0) == (den<0)) || rem==0) return number(quo); else return number(quo-1);
+    } else return number(floor(checkintfloat(arg) / checkintfloat(first(args))));
+  } else {
+    if (integerp(arg)) return number(arg->integer);
+    else return number(floor(checkintfloat(arg)));
+  }
 }
 
 object *fn_truncate (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   args = cdr(args);
-  if (args != NULL) return number((int)(checkintfloat(arg) / checkintfloat(first(args))));
-  else return number((int)(checkintfloat(arg)));
+  if (args != NULL) {
+    object *arg2 = first(args);
+    if (integerp(arg) && integerp(arg2)) return number(arg->integer / arg2->integer);
+    else return number((int)(checkintfloat(arg) / checkintfloat(first(args))));
+  } else {
+    if (integerp(arg)) return number(arg->integer);
+    else return number((int)(checkintfloat(arg)));
+  }
 }
 
 object *fn_round (object *args, object *env) {
@@ -4741,6 +4765,7 @@ object *fn_search (object *args, object *env) {
 object *fn_readfromstring (object *args, object *env) {
   (void) env;
   object *arg = checkstring(first(args));
+  if (stringlength(arg) == 0) error2("zero length string");
   GlobalString = arg;
   GlobalStringIndex = 0;
   object *val = readmain(gstr);
@@ -6425,7 +6450,7 @@ const char doc72[] = "(arrayp item)\n"
 const char doc73[] = "(boundp item)\n"
 "Returns t if its argument is a symbol with a value.";
 const char doc74[] = "(keywordp item)\n"
-"Returns t if its argument is a built-in or user-defined keyword.";
+"Returns non-nil if its argument is a built-in or user-defined keyword.";
 const char doc75[] = "(set symbol value [symbol value]*)\n"
 "For each pair of arguments, assigns the value of the second argument to the value of the first argument.";
 const char doc76[] = "(streamp item)\n"
@@ -6603,9 +6628,9 @@ const char doc148[] = "(expt number power)\n"
 "Returns the result as an integer if the arguments are integers and the result will be within range,\n"
 "otherwise a floating-point number.";
 const char doc149[] = "(ceiling number [divisor])\n"
-"Returns ceil(number/divisor). If omitted, divisor is 1.";
+"Returns the integer closest to +infinity for number/divisor. If divisor is omitted it defaults to 1.";
 const char doc150[] = "(floor number [divisor])\n"
-"Returns floor(number/divisor). If omitted, divisor is 1.";
+"Returns the integer closest to -infinity for number/divisor. If divisor is omitted it defaults to 1.";
 const char doc151[] = "(truncate number [divisor])\n"
 "Returns the integer part of number/divisor. If divisor is omitted it defaults to 1.";
 const char doc152[] = "(round number [divisor])\n"
@@ -7453,8 +7478,6 @@ object *eval (object *form, object *env) {
         form = ((fn_ptr_type)lookupfn(name))(args, env);
         TC = 1;
         goto EVAL;
-     
-      case OTHER_FORMS: error(illegalfn, function);
     }
   }
 
@@ -7489,7 +7512,9 @@ object *eval (object *form, object *env) {
     builtin_t bname = builtin(function->name);
     Context = bname;
     checkminmax(bname, nargs);
-    object *result = ((fn_ptr_type)lookupfn(bname))(args, env);
+    intptr_t call = lookupfn(bname);
+    if (call == NULL) error(illegalfn, function);
+    object *result = ((fn_ptr_type)call)(args, env);
     unprotect();
     return result;
   }
@@ -7793,10 +7818,10 @@ void loadfromlibrary (object *env) {
 
 // For line editor
 const int TerminalWidth = 80;
-volatile int WritePtr = 0, ReadPtr = 0, LastWritePtr = 0;
+int WritePtr = 0, ReadPtr = 0, LastWritePtr = 0;
 const int KybdBufSize = 333; // 42*8 - 3
 char KybdBuf[KybdBufSize];
-volatile uint8_t KybdAvailable = 0;
+uint8_t KybdAvailable = 0;
 
 // Parenthesis highlighting
 void esc (int p, char c) {
@@ -8123,7 +8148,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8c "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8e "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
