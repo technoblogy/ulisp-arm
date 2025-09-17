@@ -1,5 +1,5 @@
-/* uLisp ARM Release 4.8e - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 28th August 2025
+/* uLisp ARM Release 4.8f - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 17th September 2025
    
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -247,9 +247,9 @@ const char LispLibrary[] = "";
   #define WORKSPACESIZE (15232-SDSIZE)    /* Objects (8*bytes) */
   #define CODESIZE 256                    /* Bytes */
   #define STACKDIFF 480
-  #define LITTLEFS
   #define ULISP_WIFI
   #include <WiFi.h>
+  #define LITTLEFS
   #include <LittleFS.h>
   #define FS_FILE_WRITE "w"
   #define FS_FILE_READ "r"
@@ -281,9 +281,9 @@ const char LispLibrary[] = "";
   #define STACKDIFF 520
   #endif
   #define CODESIZE 256                    /* Bytes */
-  #define LITTLEFS
   #define ULISP_WIFI
   #include <WiFi.h>
+  #define LITTLEFS
   #include <LittleFS.h>
   #define FS_FILE_WRITE "w"
   #define FS_FILE_READ "r"
@@ -325,6 +325,42 @@ const char LispLibrary[] = "";
   #define FS_FILE_WRITE "w"
   #define FS_FILE_READ "r"
   #define CPU_RP2350
+
+#elif defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350)
+  // #define BOARD_HAS_PSRAM               /* Uncomment to use PSRAM */
+  #if defined(BOARD_HAS_PSRAM)
+  #undef MEMBANK
+  #define MEMBANK PSRAM
+  #define WORKSPACESIZE 1000000           /* Objects (8*bytes) */
+  #define STACKDIFF 580
+  #elif defined(__riscv) && defined(gfxsupport)
+  #define WORKSPACESIZE (18000-SDSIZE)    /* Objects (8*bytes) */
+  #define STACKDIFF 580
+  #elif defined(__riscv)                  /* RISC-V but no gfx */
+  #define WORKSPACESIZE (42500-SDSIZE)    /* Objects (8*bytes) */
+  #define STACKDIFF 580
+  #elif defined (gfxsupport)              /* ARM with gfx */
+  #define WORKSPACESIZE (22500-SDSIZE)    /* Objects (8*bytes) */
+  #define STACKDIFF 520
+  #else                                   /* ARM but no gfx */
+  #define WORKSPACESIZE (46500-SDSIZE)    /* Objects (8*bytes) */
+  #define STACKDIFF 520
+  #endif
+  #define CODESIZE 256                    /* Bytes */
+  //#define ULISP_WIFI
+  //#include <WiFi.h>
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define FS_FILE_WRITE "w"
+  #define FS_FILE_READ "r"
+  #define SDCARD_SS_PIN 39
+  #define CPU_RP2350
+  #if defined(gfxsupport)
+  #include <Adafruit_dvhstx.h>
+  DVHSTXPinout pinConfig = ADAFRUIT_FRUIT_JAM_CFG;
+  DVHSTX16 tft(pinConfig, DVHSTX_RESOLUTION_400x240); // Uses 19200 bytes of RAM
+  const int COLOR_WHITE = 0xffff, COLOR_BLACK = 0;
+  #endif
 
 // RA4M1 boards ***************************************************************
 
@@ -3190,6 +3226,8 @@ void checkanalogread (int pin) {
   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
   || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2350_HSTX)
   if (!(pin>=26 && pin<=29)) error(invalidpin, number(pin));
+#elif defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350)
+  if (!(pin>=40 && pin<=45)) error(invalidpin, number(pin));
 #elif defined(ARDUINO_MINIMA) || defined(ARDUINO_UNOWIFIR4)
   if (!((pin>=14 && pin<=21))) error(invalidpin, number(pin));
 #elif defined(ARDUINO_SAMD_ZERO) // Put last
@@ -3265,7 +3303,7 @@ void playnote (int pin, int note, int octave) {
   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040) \
   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
   || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2350_HSTX) \
-  || defined(ARDUINO_WIO_TERMINAL) 
+  || defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350) || defined(ARDUINO_WIO_TERMINAL) 
   int oct = octave + note/12;
   int prescaler = 8 - oct;
   if (prescaler<0 || prescaler>8) error("octave out of range", number(oct));
@@ -3282,7 +3320,7 @@ void nonote (int pin) {
   || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040) \
   || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
   || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2350_HSTX) \
-  || defined(ARDUINO_WIO_TERMINAL) 
+  || defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350) || defined(ARDUINO_WIO_TERMINAL) 
   noTone(pin);
 #else
   (void) pin;
@@ -6261,7 +6299,8 @@ object *fn_analogreference (object *args, object *env) {
    || defined(ARDUINO_ADAFRUIT_QTPY_RP2040) || defined(ARDUINO_SEEED_XIAO_RP2040) \
    || defined(ARDUINO_RASPBERRY_PI_PICO_2) || defined(ARDUINO_RASPBERRY_PI_PICO_2W) \
    || defined(ARDUINO_PIMORONI_PICO_PLUS_2) || defined(ARDUINO_ADAFRUIT_FEATHER_RP2350_HSTX) \
-   || defined(ARDUINO_PIMORONI_TINY2350) || defined(ARDUINO_NANO_MATTER) || defined(ARDUINO_XIAO_MG24)
+   || defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350) || defined(ARDUINO_PIMORONI_TINY2350) \
+   || defined(ARDUINO_NANO_MATTER) || defined(ARDUINO_XIAO_MG24)
   error2("not supported");
   #else
   analogReference((eAnalogReference)checkkeyword(arg));
@@ -9624,9 +9663,17 @@ void initenv () {
 */
 void initgfx () {
   #if defined(gfxsupport)
-  #if defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
+  #if defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350)
+  if (!tft.begin()) { // Blink LED if insufficient RAM
+    pinMode(LED_BUILTIN, OUTPUT);
+    for (;;) digitalWrite(LED_BUILTIN, (millis() / 500) & 1);
+  }
+  pinMode(PIN_5V_EN, OUTPUT);
+  digitalWrite(PIN_5V_EN, PIN_5V_EN_STATE);
+  tft.setRotation(0);
+  #elif defined(ARDUINO_PYBADGE_M4) || defined(ARDUINO_PYGAMER_M4)
   tft.initR(INITR_BLACKTAB);
-  tft.setRotation(1);
+  tft.setRotation(3);
   pinMode(TFT_BACKLIGHT, OUTPUT);
   digitalWrite(TFT_BACKLIGHT, HIGH);
   tft.fillScreen(0);
@@ -9660,7 +9707,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8e "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8f "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
