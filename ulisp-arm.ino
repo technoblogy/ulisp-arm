@@ -5,65 +5,7 @@
 */
 
 // Lisp Library
-const char LispLibrary[] = R"lisplibrary(
-
-(defun psram-fill (arr n seed)
-  (dotimes (i n)
-    (setf (aref arr i) (logand (+ (* i 31) seed) #xFFFF))))
-
-(defun psram-check (arr n seed)
-  (let ((errs 0))
-    (dotimes (i n)
-      (unless (= (aref arr i) (logand (+ (* i 31) seed) #xFFFF))
-        (incf errs)))
-    errs))
-
-(defun psram-test (&optional (size 2000) (rounds 10))
-  (let ((arr1 (make-array size))
-        (arr2 (make-array size))
-        (errors 0)
-        (w 400)
-        (h 240))
-    (fill-screen 0)
-    (set-text-size 2)
-    (set-text-color #xFFFF 0)
-    (set-cursor 60 10)
-    (with-gfx (s) (princ "PSRAM+HDMI Test" s))
-    (set-text-size 1)
-    (draw-line 0 30 399 30 #x7BEF)
-    (set-cursor 10 40)
-    (set-text-color #xFFFF 0)
-    (with-gfx (s) (format s "arrays: 2x~a  rounds: ~a" size rounds))
-    (draw-rect 10 60 380 14 #x7BEF)
-    (dotimes (r rounds)
-      (let ((seed1 (* (1+ r) 7))
-            (seed2 (* (1+ r) 13))
-            (pct (truncate (* 380 (1+ r)) rounds)))
-        (psram-fill arr1 size seed1)
-        (psram-fill arr2 size seed2)
-        (let ((cx (+ 50 (mod (* r 37) 300)))
-              (cy (+ 110 (mod (* r 53) 100)))
-              (rad (+ 5 (mod r 20)))
-              (col (+ #x0800 (* (mod r 30) #x0842))))
-          (fill-circle cx cy rad col)
-          (draw-circle cx cy rad #xFFFF))
-        (let ((e1 (psram-check arr1 size seed1))
-              (e2 (psram-check arr2 size seed2)))
-          (incf errors (+ e1 e2)))
-        (fill-rect 11 61 (min pct 378) 12
-          (if (= errors 0) #x07E0 #xF800))
-        (fill-rect 10 220 200 10 0)
-        (set-cursor 10 220)
-        (set-text-color (if (= errors 0) #x07E0 #xF800) 0)
-        (with-gfx (s) (format s "round ~a/~a  errors: ~a" (1+ r) rounds errors))))
-    (set-cursor 10 232)
-    (set-text-color (if (= errors 0) #x07E0 #xF800) 0)
-    (with-gfx (s)
-      (format s "DONE: ~a ~a" (if (= errors 0) "PASS" "FAIL") errors))
-    (format t "psram-test: ~a rounds, size ~a, ~a total errors~%" rounds size errors)
-    errors))
-
-)lisplibrary";
+const char LispLibrary[] = "";
 
 // Compile options
 
@@ -71,8 +13,8 @@ const char LispLibrary[] = R"lisplibrary(
 #define printfreespace
 // #define printgcs
 // #define sdcardsupport
-#define gfxsupport
-#define lisplibrary
+// #define gfxsupport
+// #define lisplibrary
 #define assemblerlist
 // #define lineeditor
 // #define vt100
