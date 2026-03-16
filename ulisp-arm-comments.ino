@@ -356,7 +356,7 @@ const char LispLibrary[] = "";
   #define CPU_RP2350
 
 #elif defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350)
-  // #define BOARD_HAS_PSRAM               /* Uncomment to use PSRAM */
+  #define BOARD_HAS_PSRAM               /* Enable 8MB PSRAM → 1M Lisp objects */
   #if defined(BOARD_HAS_PSRAM)
   #undef MEMBANK
   #define MEMBANK PSRAM
@@ -9571,6 +9571,16 @@ void setup () {
   Serial.begin(9600);
   int start = millis();
   while ((millis() - start) < 5000) { if (Serial) break; }
+  #if defined(ARDUINO_ADAFRUIT_FRUITJAM_RP2350) && defined(BOARD_HAS_PSRAM)
+  // The DVHSTX library's global constructor (init_priority 101) changes clk_sys
+  // from 125 MHz to 240 MHz AFTER the Arduino core's PSRAM init ran at 125 MHz.
+  // The PSRAM QMI timing (divisor, rxdelay) must be recalculated for the actual
+  // clock speed, otherwise PSRAM SCK = 240/2 = 120 MHz exceeds the 109 MHz max.
+  {
+    extern void psram_reinit_timing(uint32_t hz);
+    psram_reinit_timing(0);  // 0 = auto-detect current clk_sys
+  }
+  #endif
   initworkspace();
   initenv();
   initsleep();
