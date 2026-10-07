@@ -7,9 +7,10 @@ A version of the Lisp programming language for boards based on the ARM processor
 * Adafruit Metro M4, ItsyBitsy M4, Feather M4, and Grand Central M4.
 * Adafruit PyBadge and PyGamer.
 * Adafruit PyPortal.
-* Adafruit CLUE and ItsyBitsy nRF52840.
-* Raspberry Pi RP2040/RP2350 boards.
 * BBC Micro Bit.
+* Adafruit CLUE and ItsyBitsy nRF52840.
+* XIAO nRF54 boards.
+* Raspberry Pi RP2040/RP2350 boards.
 * Maxim MAX32620FTHR.
 * Teensy 4.0/4.1.
 
